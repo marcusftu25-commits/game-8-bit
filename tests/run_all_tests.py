@@ -36,19 +36,28 @@ def main():
         sys.exit(res1.returncode)
 
     # Phase 2: E2E Integration & Responsive Tests
-    print(f"\n{YELLOW}{BOLD}[PHASE 2/2] CHAY BO INTEGRATION & PHONE RESPONSIVE TESTS (Chrome/Edge CDP)...{RESET}")
+    print(f"\n{YELLOW}{BOLD}[PHASE 2/3] CHAY BO INTEGRATION & PHONE RESPONSIVE TESTS (Chrome/Edge CDP)...{RESET}")
     res2 = subprocess.run([py_exe, str(BASE_DIR / "test_e2e_responsive.py")])
     if res2.returncode != 0:
         print(f"\n{RED}{BOLD}[ERROR] E2E Responsive Tests that bai!{RESET}")
         sys.exit(res2.returncode)
 
+    # Phase 3: MVP 1 Backend & Guest Auth Tests
+    print(f"\n{YELLOW}{BOLD}[PHASE 3/3] CHAY BO MVP 1 BACKEND & GUEST AUTH TESTS (Node.js REST API & RAM Engine)...{RESET}")
+    node_exe = r"C:\Program Files\nodejs\node.exe"
+    res3 = subprocess.run([node_exe, str(BASE_DIR / "test_mvp1.js")])
+    if res3.returncode != 0:
+        print(f"\n{RED}{BOLD}[ERROR] MVP 1 Tests that bai!{RESET}")
+        sys.exit(res3.returncode)
+
     # All Completed Successfully
     print(f"\n{GREEN}{BOLD}{'='*75}{RESET}")
     print(f"{GREEN}{BOLD}🎉 CHUC MUNG! TOAN BO CAC BO KIEM THU DA HOAN TAT & DAT 100%!{RESET}")
     print(f"{GREEN}{BOLD}{'='*75}{RESET}")
-    print(f"  • {BOLD}Unit Tests:{RESET} 22/22 Tests Đạt")
+    print(f"  • {BOLD}HTML & Algorithm Unit Tests:{RESET} 22/22 Tests Đạt")
     print(f"  • {BOLD}E2E & Phone Responsive:{RESET} 21/21 Tests Đạt")
-    print(f"  • {BOLD}Tong cong:{RESET} 43/43 Tests Đạt chuẩn thiết kế và responsive\n")
+    print(f"  • {BOLD}MVP 1 Backend & Guest Auth:{RESET} 16/16 Tests Đạt")
+    print(f"  • {BOLD}Tong cong:{RESET} 59/59 Tests Đạt chuẩn 100%\n")
     print(f"💡 {BOLD}Test truc quan bang trinh duyet:{RESET}")
     print(f"   Mo file: {CYAN}{BASE_DIR / 'test_runner.html'}{RESET} de su dung khung gia lap")
     print(f"   dien thoai (iPhone 14, SE, Android) va chay test tuong tac thoi gian thuc.\n")

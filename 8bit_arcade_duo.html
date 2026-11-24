@@ -16,6 +16,10 @@
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
+  <!-- MVP 1 Modules: Guest Auth & Lobby Manager -->
+  <script src="src/guestAuth.js"></script>
+  <script src="src/lobbyManager.js"></script>
+
   <script>
     tailwind.config = {
       theme: {
@@ -1002,8 +1006,12 @@
       AppState.currentView = view;
     }
 
-    function createNewRoom(gameId = 'starfighter') {
-      const code = Math.random().toString(36).substring(2, 6).toUpperCase();
+    async function createNewRoom(gameId = 'starfighter') {
+      let code = Math.random().toString(36).substring(2, 6).toUpperCase();
+      if (window.LobbyManager) {
+        const room = await window.LobbyManager.createRoom(gameId, AppState.room.mode);
+        if (room && room.code) code = room.code;
+      }
       AppState.room.code = code;
       AppState.room.gameId = gameId;
       AppState.player.role = 'P1';
@@ -1019,16 +1027,24 @@
       playSfx('powerup');
     }
 
-    function joinExistingRoom() {
+    async function joinExistingRoom() {
       const input = document.getElementById('input-join-code').value.trim().toUpperCase();
       if (input.length < 4) {
         showToast('Vui lòng nhập đủ 4 ký tự mã phòng!');
         return;
       }
-      quickJoinRoom(input, 'starfighter');
+      await quickJoinRoom(input, 'starfighter');
     }
 
-    function quickJoinRoom(code, defaultGameId) {
+    async function quickJoinRoom(code, defaultGameId) {
+      if (window.LobbyManager) {
+        const res = await window.LobbyManager.joinRoom(code);
+        if (!res.success) {
+          showToast(res.message);
+          return;
+        }
+      }
+
       AppState.room.code = code;
       AppState.room.gameId = defaultGameId;
       AppState.player.role = 'P2';
@@ -1104,9 +1120,15 @@
     }
     function saveProfile() {
       const val = document.getElementById('input-player-name').value.trim();
-      if (val) AppState.player.name = val;
-      document.getElementById('player-name-display').textContent = AppState.player.name;
-      document.getElementById('player-avatar-display').textContent = AppState.player.avatar;
+      if (window.GuestAuth) {
+        const updated = window.GuestAuth.updateProfile(val, AppState.player.avatar);
+        AppState.player.name = updated.name;
+        AppState.player.avatar = updated.avatar;
+      } else {
+        if (val) AppState.player.name = val;
+        document.getElementById('player-name-display').textContent = AppState.player.name;
+        document.getElementById('player-avatar-display').textContent = AppState.player.avatar;
+      }
       closeProfileModal();
       showToast('Đã cập nhật hồ sơ!');
     }
@@ -1806,7 +1828,16 @@
       return false;
     }
 
-    // Boot App
+    // Boot App & Init MVP 1 Modules
+    if (window.GuestAuth) {
+      const profile = window.GuestAuth.initGuestAuth();
+      AppState.player.id = profile.id;
+      AppState.player.name = profile.name;
+      AppState.player.avatar = profile.avatar;
+    }
+    if (window.LobbyManager) {
+      window.LobbyManager.renderPublicRoomsList();
+    }
     renderGamesGrid('all');
   </script>
 </body>
