@@ -106,7 +106,7 @@ def run_e2e_tests():
         def log_message(self, format, *args):
             pass
 
-    httpd = http.server.HTTPServer(("127.0.0.1", http_port), QuietHandler)
+    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", http_port), QuietHandler)
     server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     server_thread.start()
 
@@ -124,7 +124,7 @@ def run_e2e_tests():
         "--no-first-run",
         "--no-default-browser-check",
         "--disable-background-networking",
-        web_url
+        "about:blank"
     ]
 
     proc = subprocess.Popen(chrome_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -251,6 +251,31 @@ def run_e2e_tests():
         key_w_up = client.eval("!keysPressed['KeyW']")
         assert_test("Su kien touchend tren nut W giai phong keysPressed['KeyW']", key_w_up)
 
+        # Test touchcancel (chong ket phim) & touch target >= 44x44px & Scroll Lock
+        client.eval("""
+            (() => {
+                const btn = document.querySelector('#mobile-controls button[data-key="Space"]');
+                btn.dispatchEvent(new CustomEvent('touchstart', { bubbles: true }));
+                btn.dispatchEvent(new CustomEvent('touchcancel', { bubbles: true }));
+            })()
+        """)
+        space_cancelled = client.eval("!keysPressed['Space']")
+        assert_test("Su kien touchcancel tren nut A (Space) giai phong phim khong bi ket", space_cancelled)
+
+        touch_target_ok = client.eval("""
+            (() => {
+                const btns = Array.from(document.querySelectorAll('#mobile-controls button.touch-btn'));
+                return btns.length === 6 && btns.every(b => {
+                    const r = b.getBoundingClientRect();
+                    return r.width >= 44 && r.height >= 44;
+                });
+            })()
+        """)
+        assert_test("Tat ca 6 nut cam ung D-Pad & A/B dat kich thuoc toi thieu 44x44px tren mobile", touch_target_ok)
+
+        scroll_locked = client.eval("document.body.style.overflow === 'hidden' && document.body.style.touchAction === 'none'")
+        assert_test("Bat Scroll Lock (overflow: hidden, touch-action: none) khi vao view-game", scroll_locked)
+
         # 3. Desktop Viewport Tests (1280x800)
         print(f"\n{YELLOW}[3/4] Kiem tra Viewport Desktop (1280 x 800)...{RESET}")
         client.send("Emulation.setDeviceMetricsOverride", {
@@ -329,6 +354,17 @@ def run_e2e_tests():
         client.eval("exitToLobby()")
         back_to_lobby = client.eval("AppState.currentView === 'lobby' && AppState.match.running === false")
         assert_test("Thoát tran ve Sảnh Chinh tat game loop", back_to_lobby)
+
+        scroll_unlocked = client.eval("document.body.style.overflow !== 'hidden'")
+        assert_test("Go Scroll Lock khi thoat ve Sanh Chinh", scroll_unlocked)
+
+        # Kiem tra 3 game mui nhon (StarFighter, Tank, Caro) chay on dinh
+        for gid in ["starfighter", "tank", "caro"]:
+            client.eval(f"AppState.room.gameId = '{gid}'; AppState.room.mode = 'bot'; startMatch(true)")
+            time.sleep(0.15)
+            running_ok = client.eval(f"AppState.match.running === true && window.currentGameState && window.currentGameState.gameId === '{gid}'")
+            assert_test(f"Game '{gid}' khoi chay va chay voi Bot AI khong loi", running_ok)
+            client.eval("exitToLobby()")
 
         # Profile Modal Customization
         client.eval("openProfileModal(); selectAvatar('🦊'); document.getElementById('input-player-name').value = 'SpeedyFox'; saveProfile()")
