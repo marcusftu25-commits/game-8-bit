@@ -19,7 +19,8 @@
   <!-- Socket.io Client (tu dong phuc vu boi Backend Server; im lang bo qua neu chay offline) -->
   <script src="/socket.io/socket.io.js" onerror="window.__socketOffline=true"></script>
 
-  <!-- MVP 1, 2, 3, 4, 5 Modules -->
+  <!-- MVP 1, 2, 3, 4, 5 Modules & i18n -->
+  <script src="src/i18n.js"></script>
   <script src="src/guestAuth.js"></script>
   <script src="src/lobbyManager.js"></script>
   <script src="src/inputController.js"></script>
@@ -200,19 +201,63 @@
           <h1 class="font-display-vi font-bold text-lg sm:text-xl tracking-wider text-white flex items-center gap-1.5">
             8-BIT <span class="text-arcade-cyan">ARCADE</span> <span class="hidden sm:inline text-arcade-pink">DUO</span>
           </h1>
-          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Đấu trường 2 người chơi trực tuyến</p>
+          <p class="text-[11px] text-slate-400 font-medium hidden sm:block" data-i18n="app_subtitle">Đấu trường 2 người chơi trực tuyến</p>
         </div>
       </div>
 
       <!-- Center Status Pill (Active Room Indicator) -->
       <div id="header-room-badge" class="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-arcade-surface border border-arcade-border text-xs">
         <span id="server-status-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-        <span class="text-slate-300">Máy chủ Việt Nam:</span>
+        <span class="text-slate-300" data-i18n="server_status">Máy chủ Việt Nam:</span>
         <span id="server-ping-display" class="font-mono font-bold text-arcade-cyan">ONLINE (24ms)</span>
       </div>
 
       <!-- Right Controls -->
       <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Language Switcher Dropdown Button -->
+        <div class="relative">
+          <button id="btn-lang-toggle" onclick="toggleLanguageMenu(event)" title="Đổi ngôn ngữ / Language / 语言"
+            class="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg bg-arcade-surface border border-arcade-border hover:border-arcade-cyan text-slate-200 hover:text-arcade-cyan transition group shadow-sm">
+            <i data-lucide="globe" class="w-4 h-4 text-arcade-cyan group-hover:rotate-12 transition-transform"></i>
+            <span id="btn-lang-current" class="text-xs font-bold flex items-center gap-1">
+              🇻🇳 <span class="hidden sm:inline font-mono">VI</span>
+            </span>
+            <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400 group-hover:text-arcade-cyan transition"></i>
+          </button>
+
+          <!-- Dropdown Menu -->
+          <div id="lang-dropdown-menu" class="hidden absolute right-0 mt-2 w-44 rounded-xl bg-arcade-surface/95 backdrop-blur-xl border-2 border-arcade-border shadow-[0_10px_30px_rgba(0,0,0,0.8)] py-1.5 z-50">
+            <div class="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-arcade-border/60 mb-1 flex items-center justify-between">
+              <span data-i18n="btn_lang">Ngôn ngữ</span>
+              <span class="font-mono text-[9px] text-arcade-cyan">i18n</span>
+            </div>
+            <button onclick="selectLanguage('vi')" data-lang="vi"
+              class="lang-select-item w-full flex items-center justify-between px-3 py-2 text-xs text-left hover:bg-arcade-cyan/15 hover:text-arcade-cyan transition text-slate-200">
+              <span class="flex items-center gap-2">
+                <span class="text-base">🇻🇳</span>
+                <span>Tiếng Việt</span>
+              </span>
+              <i data-lucide="check" class="lang-check-icon w-3.5 h-3.5 text-arcade-cyan"></i>
+            </button>
+            <button onclick="selectLanguage('en')" data-lang="en"
+              class="lang-select-item w-full flex items-center justify-between px-3 py-2 text-xs text-left hover:bg-arcade-cyan/15 hover:text-arcade-cyan transition text-slate-200">
+              <span class="flex items-center gap-2">
+                <span class="text-base">🇬🇧</span>
+                <span>English</span>
+              </span>
+              <i data-lucide="check" class="lang-check-icon hidden w-3.5 h-3.5 text-arcade-cyan"></i>
+            </button>
+            <button onclick="selectLanguage('zh')" data-lang="zh"
+              class="lang-select-item w-full flex items-center justify-between px-3 py-2 text-xs text-left hover:bg-arcade-cyan/15 hover:text-arcade-cyan transition text-slate-200">
+              <span class="flex items-center gap-2">
+                <span class="text-base">🇨🇳</span>
+                <span>中文 (Chinese)</span>
+              </span>
+              <i data-lucide="check" class="lang-check-icon hidden w-3.5 h-3.5 text-arcade-cyan"></i>
+            </button>
+          </div>
+        </div>
+
         <!-- Sound Toggle -->
         <button id="btn-sound" onclick="toggleSound()" title="Bật/Tắt Âm Thanh 8-Bit"
           class="p-2 rounded-lg bg-arcade-surface border border-arcade-border hover:border-arcade-cyan text-slate-300 hover:text-arcade-cyan transition">
@@ -256,14 +301,14 @@
           <div class="lg:col-span-7 space-y-4">
             <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-arcade-cyan/15 border border-arcade-cyan/40 text-arcade-cyan text-xs font-semibold">
               <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-              <span>Hỗ trợ chơi 2 người Online & Chia đôi bàn phím</span>
+              <span data-i18n="hero_badge">Hỗ trợ chơi 2 người Online & Chia đôi bàn phím</span>
             </div>
 
             <h2 class="font-display-vi font-bold text-2xl sm:text-4xl text-white leading-tight">
               THÁCH ĐẤU BẠN BÈ TRONG THẾ GIỚI <span class="text-transparent bg-clip-text bg-gradient-to-r from-arcade-cyan via-arcade-yellow to-arcade-pink">GAME 8-BIT</span>
             </h2>
 
-            <p class="text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl">
+            <p class="text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl" data-i18n="hero_desc">
               Tạo phòng riêng trong 1 giây, gửi mã 4 ký tự cho bạn bè hoặc mở 2 tab trình duyệt để trải nghiệm đồng bộ thời gian thực mượt mà trên cả điện thoại và máy tính.
             </p>
 
@@ -272,15 +317,15 @@
               <button onclick="createNewRoom('starfighter')" 
                 class="arcade-btn px-6 py-3.5 rounded-xl bg-arcade-cyan text-arcade-bg shadow-[0_4px_0_#009E88] hover:brightness-110 flex items-center justify-center gap-2 text-sm sm:text-base">
                 <i data-lucide="plus-square" class="w-5 h-5"></i>
-                <span>Tạo Phòng Chơi Ngay</span>
+                <span data-i18n="btn_create_room">Tạo Phòng Chơi Ngay</span>
               </button>
 
               <div class="flex items-center bg-arcade-bg border-2 border-arcade-border rounded-xl p-1 focus-within:border-arcade-pink transition">
-                <input id="input-join-code" type="text" maxlength="4" placeholder="NHẬP MÃ PHÒNG"
+                <input id="input-join-code" type="text" maxlength="4" placeholder="NHẬP MÃ PHÒNG" data-i18n-attr="placeholder:room_code_placeholder"
                   class="bg-transparent px-3 py-2 text-sm font-mono font-bold uppercase text-white placeholder-slate-500 w-36 focus:outline-none text-center tracking-widest" />
                 <button onclick="joinExistingRoom()"
                   class="arcade-btn px-4 py-2 rounded-lg bg-arcade-pink text-white text-xs sm:text-sm hover:brightness-110">
-                  Vào Phòng
+                  <span data-i18n="btn_join_room">Vào Phòng</span>
                 </button>
               </div>
             </div>
@@ -291,7 +336,7 @@
             <div class="w-full max-w-sm bg-arcade-bg/90 border-2 border-arcade-border rounded-xl p-4 space-y-3 shadow-inner">
               <div class="flex items-center justify-between border-b border-arcade-border pb-2.5">
                 <span class="text-xs font-bold text-slate-400 uppercase flex items-center gap-1.5">
-                  <span class="w-2 h-2 rounded-full bg-arcade-pink animate-pulse"></span> Phòng Đang Hoạt Động
+                  <span class="w-2 h-2 rounded-full bg-arcade-pink animate-pulse"></span> <span data-i18n="active_rooms_title">Phòng Đang Hoạt Động</span>
                 </span>
                 <span class="text-xs font-mono text-arcade-cyan">128 Người Online</span>
               </div>
@@ -1151,7 +1196,11 @@
       const grid = document.getElementById('games-grid');
       const filtered = filter === 'all' ? GAMES_CATALOG : GAMES_CATALOG.filter(g => g.category === filter);
 
-      grid.innerHTML = filtered.map(game => `
+      grid.innerHTML = filtered.map(game => {
+        const title = window.i18n ? window.i18n.t('game_' + game.id, game.title) : game.title;
+        const desc = window.i18n ? window.i18n.t('game_' + game.id + '_desc', game.desc) : game.desc;
+        const playBtnText = window.i18n ? window.i18n.t('btn_play_now', 'Chơi Ngay') : 'Chơi Ngay';
+        return `
         <div class="arcade-box rounded-2xl p-5 flex flex-col justify-between gap-4">
           <div class="space-y-3">
             <div class="flex items-start justify-between gap-2">
@@ -1164,12 +1213,12 @@
             </div>
 
             <div>
-              <h3 class="font-display-vi font-bold text-lg text-white">${game.title}</h3>
+              <h3 class="font-display-vi font-bold text-lg text-white">${title}</h3>
               <p class="text-xs font-mono text-arcade-cyan mt-0.5">${game.subtitle}</p>
             </div>
 
             <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              ${game.desc}
+              ${desc}
             </p>
           </div>
 
@@ -1179,11 +1228,12 @@
             </span>
             <button onclick="createNewRoom('${game.id}')"
               class="arcade-btn px-4 py-2 rounded-lg bg-arcade-cyan text-arcade-bg text-xs hover:brightness-110">
-              Chơi Ngay
+              ${playBtnText}
             </button>
           </div>
         </div>
-      `).join('');
+      `;
+      }).join('');
       lucide.createIcons();
     }
 
@@ -1331,6 +1381,42 @@
         if (window.lucide) lucide.createIcons();
       } catch (e) {}
     }
+
+    function toggleLanguageMenu(e) {
+      if (e) e.stopPropagation();
+      const menu = document.getElementById('lang-dropdown-menu');
+      if (!menu) return;
+      const isHidden = menu.classList.contains('hidden');
+      if (isHidden) {
+        menu.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+      } else {
+        menu.classList.add('hidden');
+      }
+    }
+
+    function selectLanguage(langCode) {
+      if (window.i18n) {
+        window.i18n.setLanguage(langCode);
+      }
+      const menu = document.getElementById('lang-dropdown-menu');
+      if (menu) menu.classList.add('hidden');
+      if (window.lucide) lucide.createIcons();
+      if (typeof renderGamesGrid === 'function') {
+        const activeFilter = document.querySelector('.filter-btn.active')?.dataset?.filter || 'all';
+        renderGamesGrid(activeFilter);
+      }
+      playSfx('blip');
+    }
+
+    // Đóng dropdown khi click ra ngoài
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('lang-dropdown-menu');
+      const btn = document.getElementById('btn-lang-toggle');
+      if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target) && !btn?.contains(e.target)) {
+        menu.classList.add('hidden');
+      }
+    });
 
     function toggleSound() {
       AppState.soundEnabled = !AppState.soundEnabled;
@@ -1785,6 +1871,9 @@
 
     // Boot App & Init MVP Modules
     loadUiPrefs();
+    if (window.i18n) {
+      window.i18n.applyToDOM();
+    }
     if (window.GuestAuth) {
       const profile = window.GuestAuth.initGuestAuth();
       AppState.player.id = profile.id;
