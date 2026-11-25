@@ -48,3 +48,12 @@ next-env.d.ts
 # python cache
 __pycache__/
 *.pyc
+/dist/
+.vinext/
+.cloudflare/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example

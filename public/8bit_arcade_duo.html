@@ -1,0 +1,1805 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>8-BIT ARCADE DUO | Cổng Game 2 Người Chơi Trực Tuyến</title>
+  
+  <!-- Google Fonts Hỗ Trợ Tiếng Việt Toàn Diện & Phong Cách Arcade Hiện Đại -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Chakra+Petch:ital,wght@0,600;0,700;1,700&family=JetBrains+Mono:wght@500;700&family=VT323&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Socket.io Client (tu dong phuc vu boi Backend Server; im lang bo qua neu chay offline) -->
+  <script src="/socket.io/socket.io.js" onerror="window.__socketOffline=true"></script>
+
+  <!-- MVP 1, 2, 3, 4, 5 Modules -->
+  <script src="src/guestAuth.js"></script>
+  <script src="src/lobbyManager.js"></script>
+  <script src="src/inputController.js"></script>
+  <script src="src/gameEngine.js"></script>
+  <script src="src/networkSync.js"></script>
+  <script src="src/leaderboardUI.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Be Vietnam Pro"', 'sans-serif'],
+            display: ['"Chakra Petch"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+            pixel: ['"VT323"', 'monospace'],
+          },
+          colors: {
+            arcade: {
+              bg: '#080912',
+              surface: '#111426',
+              card: '#171B34',
+              border: '#272E54',
+              cyan: '#00F5D4',
+              pink: '#FF2A85',
+              yellow: '#FEE440',
+              purple: '#9B5DE5',
+            }
+          },
+          animation: {
+            'float': 'float 3s ease-in-out infinite',
+            'pulse-glow': 'pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-6px)' },
+            },
+            pulseGlow: {
+              '0%, 100%': { opacity: 1 },
+              '50%': { opacity: .6 },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: #080912;
+      color: #F8FAFC;
+      font-family: 'Be Vietnam Pro', sans-serif;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    /* Chống nhảy chữ & hiển thị dấu tiếng Việt sắc nét */
+    .font-display-vi {
+      font-family: 'Chakra Petch', sans-serif;
+      letter-spacing: 0.02em;
+      line-height: 1.25;
+    }
+
+    .font-pixel-vi {
+      font-family: 'VT323', monospace;
+      letter-spacing: 0.03em;
+    }
+
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Pixel Border & Retro Shadows */
+    .arcade-box {
+      background: #111426;
+      border: 2px solid #272E54;
+      box-shadow: 0 6px 0 #05060D;
+      transition: all 0.18s ease;
+    }
+
+    .arcade-box:hover {
+      border-color: #00F5D4;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 0 #05060D, 0 0 18px rgba(0, 245, 212, 0.18);
+    }
+
+    .arcade-btn {
+      font-family: 'Chakra Petch', sans-serif;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+
+    .arcade-btn:active {
+      transform: translateY(3px);
+      box-shadow: none !important;
+    }
+
+    /* CRT Scanlines Overlay */
+    .crt-overlay {
+      background: linear-gradient(
+        rgba(18, 16, 16, 0) 50%, 
+        rgba(0, 0, 0, 0.25) 50%
+      ), linear-gradient(
+        90deg,
+        rgba(255, 0, 0, 0.03),
+        rgba(0, 255, 0, 0.01),
+        rgba(0, 0, 255, 0.03)
+      );
+      background-size: 100% 3px, 6px 100%;
+      pointer-events: none;
+    }
+
+    /* Grid Background */
+    .bg-cyber-grid {
+      background-size: 36px 36px;
+      background-image: 
+        linear-gradient(to right, rgba(39, 46, 84, 0.25) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(39, 46, 84, 0.25) 1px, transparent 1px);
+    }
+
+    /* Screen Shake Animation */
+    @keyframes shake {
+      0%, 100% { transform: translate(0, 0); }
+      20% { transform: translate(-4px, 3px); }
+      40% { transform: translate(4px, -3px); }
+      60% { transform: translate(-3px, -2px); }
+      80% { transform: translate(3px, 2px); }
+    }
+    .shake-effect {
+      animation: shake 0.25s cubic-bezier(.36,.07,.19,.97) both;
+    }
+
+    /* Emote Floating Animation */
+    @keyframes floatEmote {
+      0% { opacity: 0; transform: translateY(15px) scale(0.7); }
+      20% { opacity: 1; transform: translateY(0) scale(1.1); }
+      80% { opacity: 1; transform: translateY(-25px) scale(1); }
+      100% { opacity: 0; transform: translateY(-45px) scale(0.8); }
+    }
+    .emote-popup {
+      animation: floatEmote 1.8s ease-out forwards;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #080912; }
+    ::-webkit-scrollbar-thumb { background: #272E54; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #00F5D4; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-cyber-grid relative selection:bg-arcade-cyan selection:text-arcade-bg">
+
+  <!-- CRT Scanline Layer (Toggleable) -->
+  <div id="crt-layer" class="fixed inset-0 z-50 crt-overlay opacity-70"></div>
+
+  <!-- =========================================================
+       TOP NAVIGATION HEADER
+  ========================================================== -->
+  <header class="sticky top-0 z-40 bg-arcade-bg/90 backdrop-blur-md border-b-2 border-arcade-border">
+    <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+      
+      <!-- Brand Logo -->
+      <div onclick="navigateTo('lobby')" class="flex items-center gap-3 cursor-pointer group">
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-arcade-cyan to-arcade-purple p-0.5 shadow-[0_0_15px_rgba(0,245,212,0.4)] group-hover:scale-105 transition">
+          <div class="w-full h-full bg-arcade-bg rounded-[6px] flex items-center justify-center">
+            <i data-lucide="gamepad-2" class="w-6 h-6 text-arcade-cyan"></i>
+          </div>
+        </div>
+        <div>
+          <h1 class="font-display-vi font-bold text-lg sm:text-xl tracking-wider text-white flex items-center gap-1.5">
+            8-BIT <span class="text-arcade-cyan">ARCADE</span> <span class="hidden sm:inline text-arcade-pink">DUO</span>
+          </h1>
+          <p class="text-[11px] text-slate-400 font-medium hidden sm:block">Đấu trường 2 người chơi trực tuyến</p>
+        </div>
+      </div>
+
+      <!-- Center Status Pill (Active Room Indicator) -->
+      <div id="header-room-badge" class="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-arcade-surface border border-arcade-border text-xs">
+        <span id="server-status-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+        <span class="text-slate-300">Máy chủ Việt Nam:</span>
+        <span id="server-ping-display" class="font-mono font-bold text-arcade-cyan">ONLINE (24ms)</span>
+      </div>
+
+      <!-- Right Controls -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Sound Toggle -->
+        <button id="btn-sound" onclick="toggleSound()" title="Bật/Tắt Âm Thanh 8-Bit"
+          class="p-2 rounded-lg bg-arcade-surface border border-arcade-border hover:border-arcade-cyan text-slate-300 hover:text-arcade-cyan transition">
+          <i id="icon-sound" data-lucide="volume-2" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+        </button>
+
+        <!-- CRT Filter Toggle -->
+        <button id="btn-crt" onclick="toggleCRT()" title="Hiệu ứng màn hình CRT"
+          class="hidden sm:flex p-2 rounded-lg bg-arcade-surface border border-arcade-border hover:border-arcade-pink text-arcade-pink transition">
+          <i data-lucide="tv" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+        </button>
+
+        <!-- Player Profile Badge -->
+        <button onclick="openProfileModal()" class="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg bg-arcade-surface border border-arcade-border hover:border-arcade-yellow transition">
+          <span id="player-avatar-display" class="text-lg leading-none">👾</span>
+          <div class="text-left">
+            <div id="player-name-display" class="text-xs font-bold text-white max-w-[90px] truncate">Player_VN</div>
+            <div id="player-stats-display" class="text-[10px] font-mono text-arcade-yellow tabular-nums">LV.1 • 0 Đ</div>
+          </div>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- =========================================================
+       MAIN CONTAINER (SPA VIEWS)
+  ========================================================== -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-6 relative z-10">
+
+    <!-- *******************************************************
+         VIEW 1: SẢNH CHÍNH (GAME HUB & LOBBY)
+    ******************************************************** -->
+    <section id="view-lobby" class="space-y-8">
+      
+      <!-- Hero Banner & Quick Join Room -->
+      <div class="relative rounded-2xl overflow-hidden bg-gradient-to-r from-[#131836] via-[#1B1438] to-[#111936] border-2 border-arcade-border p-6 sm:p-8 shadow-2xl">
+        <div class="absolute -right-10 -top-10 w-64 h-64 bg-arcade-cyan/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -left-10 -bottom-10 w-64 h-64 bg-arcade-pink/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          <div class="lg:col-span-7 space-y-4">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-arcade-cyan/15 border border-arcade-cyan/40 text-arcade-cyan text-xs font-semibold">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              <span>Hỗ trợ chơi 2 người Online & Chia đôi bàn phím</span>
+            </div>
+
+            <h2 class="font-display-vi font-bold text-2xl sm:text-4xl text-white leading-tight">
+              THÁCH ĐẤU BẠN BÈ TRONG THẾ GIỚI <span class="text-transparent bg-clip-text bg-gradient-to-r from-arcade-cyan via-arcade-yellow to-arcade-pink">GAME 8-BIT</span>
+            </h2>
+
+            <p class="text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl">
+              Tạo phòng riêng trong 1 giây, gửi mã 4 ký tự cho bạn bè hoặc mở 2 tab trình duyệt để trải nghiệm đồng bộ thời gian thực mượt mà trên cả điện thoại và máy tính.
+            </p>
+
+            <!-- Action Buttons: Create Room / Join Room -->
+            <div class="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <button onclick="createNewRoom('starfighter')" 
+                class="arcade-btn px-6 py-3.5 rounded-xl bg-arcade-cyan text-arcade-bg shadow-[0_4px_0_#009E88] hover:brightness-110 flex items-center justify-center gap-2 text-sm sm:text-base">
+                <i data-lucide="plus-square" class="w-5 h-5"></i>
+                <span>Tạo Phòng Chơi Ngay</span>
+              </button>
+
+              <div class="flex items-center bg-arcade-bg border-2 border-arcade-border rounded-xl p-1 focus-within:border-arcade-pink transition">
+                <input id="input-join-code" type="text" maxlength="4" placeholder="NHẬP MÃ PHÒNG"
+                  class="bg-transparent px-3 py-2 text-sm font-mono font-bold uppercase text-white placeholder-slate-500 w-36 focus:outline-none text-center tracking-widest" />
+                <button onclick="joinExistingRoom()"
+                  class="arcade-btn px-4 py-2 rounded-lg bg-arcade-pink text-white text-xs sm:text-sm hover:brightness-110">
+                  Vào Phòng
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Animated Arcade Preview Card -->
+          <div class="lg:col-span-5 flex justify-center">
+            <div class="w-full max-w-sm bg-arcade-bg/90 border-2 border-arcade-border rounded-xl p-4 space-y-3 shadow-inner">
+              <div class="flex items-center justify-between border-b border-arcade-border pb-2.5">
+                <span class="text-xs font-bold text-slate-400 uppercase flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-arcade-pink animate-pulse"></span> Phòng Đang Hoạt Động
+                </span>
+                <span class="text-xs font-mono text-arcade-cyan">128 Người Online</span>
+              </div>
+              
+              <!-- Live Public Rooms List (Hook for Backend API) -->
+              <div id="public-rooms-list" class="space-y-2">
+                <div class="flex items-center justify-between p-2.5 rounded-lg bg-arcade-surface border border-arcade-border/80 hover:border-arcade-cyan transition">
+                  <div>
+                    <div class="text-xs font-bold text-white">🚀 Bắn Tàu Bay Đôi</div>
+                    <div class="text-[11px] text-slate-400">Chủ phòng: <span class="text-arcade-cyan">MinhKhoa_99</span></div>
+                  </div>
+                  <button onclick="quickJoinRoom('VN88', 'starfighter')" class="px-3 py-1.5 rounded bg-arcade-cyan/20 text-arcade-cyan hover:bg-arcade-cyan hover:text-arcade-bg text-xs font-bold transition">
+                    Tham gia
+                  </button>
+                </div>
+
+                <div class="flex items-center justify-between p-2.5 rounded-lg bg-arcade-surface border border-arcade-border/80 hover:border-arcade-cyan transition">
+                  <div>
+                    <div class="text-xs font-bold text-white">🛡️ Xe Tăng Đại Chiến</div>
+                    <div class="text-[11px] text-slate-400">Chủ phòng: <span class="text-arcade-yellow">TuanAnhPro</span></div>
+                  </div>
+                  <button onclick="quickJoinRoom('TK24', 'tank')" class="px-3 py-1.5 rounded bg-arcade-cyan/20 text-arcade-cyan hover:bg-arcade-cyan hover:text-arcade-bg text-xs font-bold transition">
+                    Tham gia
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category Filter Tabs & View Switcher -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-2 overflow-x-auto pb-1">
+          <button onclick="filterGames('all')" data-filter="all" class="filter-btn active px-4 py-2 rounded-lg text-xs sm:text-sm font-bold bg-arcade-cyan text-arcade-bg transition whitespace-nowrap">
+            Tất Cả Trò Chơi (5)
+          </button>
+          <button onclick="filterGames('action')" data-filter="action" class="filter-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-arcade-surface text-slate-300 border border-arcade-border hover:border-arcade-cyan transition whitespace-nowrap">
+            Bắn Súng & Hành Động
+          </button>
+          <button onclick="filterGames('racing')" data-filter="racing" class="filter-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-arcade-surface text-slate-300 border border-arcade-border hover:border-arcade-cyan transition whitespace-nowrap">
+            Đua Xe & Thể Thao
+          </button>
+          <button onclick="filterGames('board')" data-filter="board" class="filter-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-arcade-surface text-slate-300 border border-arcade-border hover:border-arcade-cyan transition whitespace-nowrap">
+            Trí Tuệ 2 Người
+          </button>
+        </div>
+
+        <button onclick="toggleLeaderboardModal()" class="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-arcade-surface border border-arcade-yellow/50 text-arcade-yellow hover:bg-arcade-yellow/10 text-xs sm:text-sm font-bold transition">
+          <i data-lucide="trophy" class="w-4 h-4"></i>
+          <span>Bảng Xếp Hạng</span>
+        </button>
+      </div>
+
+      <!-- Game Grid -->
+      <div id="games-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Rendered dynamically by JS -->
+      </div>
+    </section>
+
+
+    <!-- *******************************************************
+         VIEW 2: PHÒNG CHỜ ĐẤU TRƯỜNG (WAITING ROOM LOBBY)
+    ******************************************************** -->
+    <section id="view-room" class="hidden max-w-4xl mx-auto space-y-6">
+      
+      <!-- Top Back & Room Info -->
+      <div class="flex flex-wrap items-center justify-between gap-4 bg-arcade-surface border-2 border-arcade-border p-4 rounded-2xl">
+        <button onclick="leaveRoom()" class="flex items-center gap-2 text-sm font-semibold text-slate-300 hover:text-white transition">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          <span>Rời Phòng</span>
+        </button>
+
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-slate-400 font-medium">Mã Phòng:</span>
+          <div class="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-arcade-bg border border-arcade-cyan/60">
+            <span id="room-code-display" class="font-mono font-bold text-lg text-arcade-cyan tracking-widest">ABCD</span>
+            <button onclick="copyRoomCode()" title="Sao chép mã phòng" class="text-slate-400 hover:text-white transition">
+              <i data-lucide="copy" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="text-xs px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 font-semibold flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="room-sync-status">Đã sẵn sàng đồng bộ</span>
+        </div>
+      </div>
+
+      <!-- Game Selection & Mode Bar -->
+      <div class="bg-arcade-surface border-2 border-arcade-border p-5 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Trò chơi đã chọn</label>
+          <select id="room-game-select" onchange="changeRoomGame(this.value)"
+            class="w-full bg-arcade-bg border-2 border-arcade-border focus:border-arcade-cyan rounded-xl px-4 py-2.5 text-sm font-bold text-white outline-none">
+            <option value="starfighter">🚀 Bắn Tàu Bay Đôi (StarFighter 2P)</option>
+            <option value="tank">🛡️ Xe Tăng Đại Chiến (Battle City 2P)</option>
+            <option value="racer">🏎️ Đua Xe Tốc Độ (Neon Pixel Racers)</option>
+            <option value="pong">🏓 Bóng Bàn Huyền Thoại (Cyber Pong 2P)</option>
+            <option value="caro">⭕ Cờ Caro Siêu Tốc (Gomoku 8-Bit)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 uppercase mb-1.5">Chế độ kết nối 2 người</label>
+          <select id="room-mode-select" onchange="changePlayMode(this.value)"
+            class="w-full bg-arcade-bg border-2 border-arcade-border focus:border-arcade-pink rounded-xl px-4 py-2.5 text-sm font-bold text-white outline-none">
+            <option value="local_or_tab">🌐 Chơi Online (2 Tab / Socket) & Chung Máy</option>
+            <option value="bot">🤖 Đấu Với Máy AI Thông Minh (1 Người)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- VS Player Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-11 gap-4 items-center">
+        
+        <!-- Player 1 Card -->
+        <div class="md:col-span-5 bg-arcade-surface border-2 border-arcade-cyan rounded-2xl p-6 text-center space-y-4 relative overflow-hidden">
+          <div class="absolute top-3 left-3 px-2.5 py-0.5 rounded bg-arcade-cyan text-arcade-bg text-[11px] font-bold">
+            NGƯỜI CHƠI 1 (P1)
+          </div>
+          <div class="w-20 h-20 mx-auto mt-4 rounded-2xl bg-arcade-bg border-2 border-arcade-cyan flex items-center justify-center text-4xl shadow-[0_0_20px_rgba(0,245,212,0.25)]">
+            <span id="p1-room-avatar">👾</span>
+          </div>
+          <div>
+            <h3 id="p1-room-name" class="font-display-vi font-bold text-lg text-white">Player_VN</h3>
+            <p class="text-xs text-slate-400 mt-1">Điều khiển: <span class="text-arcade-cyan font-mono">W A S D + SPACE</span></p>
+          </div>
+          <div class="pt-2">
+            <span class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold border border-emerald-500/40">
+              <i data-lucide="check-circle-2" class="w-4 h-4"></i> ĐÃ SẴN SÀNG
+            </span>
+          </div>
+        </div>
+
+        <!-- VS Badge -->
+        <div class="md:col-span-1 flex justify-center py-2">
+          <div class="w-12 h-12 rounded-full bg-arcade-pink text-white font-display-vi font-black text-lg flex items-center justify-center shadow-[0_0_20px_rgba(255,42,133,0.6)]">
+            VS
+          </div>
+        </div>
+
+        <!-- Player 2 Card -->
+        <div id="p2-card" class="md:col-span-5 bg-arcade-surface border-2 border-arcade-pink rounded-2xl p-6 text-center space-y-4 relative overflow-hidden">
+          <div class="absolute top-3 left-3 px-2.5 py-0.5 rounded bg-arcade-pink text-white text-[11px] font-bold">
+            NGƯỜI CHƠI 2 (P2)
+          </div>
+          <div class="w-20 h-20 mx-auto mt-4 rounded-2xl bg-arcade-bg border-2 border-arcade-pink flex items-center justify-center text-4xl shadow-[0_0_20px_rgba(255,42,133,0.25)]">
+            <span id="p2-room-avatar">🤖</span>
+          </div>
+          <div>
+            <h3 id="p2-room-name" class="font-display-vi font-bold text-lg text-white">Người Chơi 2 / Bạn Bè</h3>
+            <p class="text-xs text-slate-400 mt-1">Điều khiển: <span class="text-arcade-pink font-mono">Mũi Tên + ENTER</span></p>
+          </div>
+          <div class="pt-2">
+            <span id="p2-ready-badge" class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-arcade-pink/20 text-arcade-pink text-xs font-bold border border-arcade-pink/40">
+              <i data-lucide="users" class="w-4 h-4"></i> SẴN SÀNG CHIẾN ĐẤU
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tip Box for Multi-Tab / Backend Integration -->
+      <div class="bg-arcade-bg/80 border border-arcade-border rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-300">
+        <div class="flex items-center gap-2.5">
+          <i data-lucide="info" class="w-5 h-5 text-arcade-yellow shrink-0"></i>
+          <span>Mẹo test Online ngay lập tức: Mở thêm 1 tab trình duyệt mới với file HTML này và nhập mã phòng <strong id="tip-room-code" class="text-arcade-cyan font-mono">ABCD</strong> để 2 người điều khiển độc lập!</span>
+        </div>
+      </div>
+
+      <!-- Start Game CTA -->
+      <div class="flex justify-center pt-2">
+        <button onclick="startMatch()"
+          class="arcade-btn w-full sm:w-auto px-10 py-4 rounded-2xl bg-gradient-to-r from-arcade-cyan to-emerald-400 text-arcade-bg text-base sm:text-lg shadow-[0_6px_0_#008F7A] hover:brightness-110 flex items-center justify-center gap-3">
+          <i data-lucide="play" class="w-6 h-6 fill-current"></i>
+          <span>BẮT ĐẦU TRẬN ĐẤU NGAY</span>
+        </button>
+      </div>
+    </section>
+
+
+    <!-- *******************************************************
+         VIEW 3: GIAO DIỆN KHI CHƠI GAME (IN-GAME ARENA)
+    ******************************************************** -->
+    <section id="view-game" class="hidden max-w-5xl mx-auto space-y-3">
+      
+      <!-- Top Match HUD Bar -->
+      <div class="bg-arcade-surface border-2 border-arcade-border rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
+        
+        <!-- Player 1 HUD -->
+        <div class="flex items-center gap-3 flex-1 min-w-[140px]">
+          <div class="w-10 h-10 rounded-lg bg-arcade-bg border border-arcade-cyan flex items-center justify-center text-xl shrink-0">
+            <span id="hud-p1-avatar">👾</span>
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center justify-between text-xs font-bold">
+              <span id="hud-p1-name" class="text-arcade-cyan truncate max-w-[90px]">P1</span>
+              <span id="hud-p1-score" class="font-mono text-white tabular-nums">0000</span>
+            </div>
+            <!-- Segmented HP Bar -->
+            <div class="w-full h-2.5 bg-arcade-bg rounded-sm overflow-hidden border border-arcade-border mt-1">
+              <div id="hud-p1-hp" class="h-full bg-arcade-cyan transition-all duration-200" style="width: 100%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Center Timer & Game Title -->
+        <div class="flex flex-col items-center justify-center px-3">
+          <span id="hud-game-title" class="text-[11px] font-bold uppercase tracking-wider text-slate-400">BẮN TÀU BAY ĐÔI</span>
+          <div class="flex items-center gap-2 mt-0.5">
+            <span id="hud-timer" class="font-mono font-bold text-lg sm:text-xl text-arcade-yellow tabular-nums">02:00</span>
+            <button id="btn-pause" onclick="togglePauseGame()" class="min-w-[44px] min-h-[44px] sm:min-w-[34px] sm:min-h-[34px] flex items-center justify-center p-1.5 rounded-lg bg-arcade-bg border border-arcade-border hover:border-white text-slate-300">
+              <i data-lucide="pause" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Player 2 HUD -->
+        <div class="flex items-center gap-3 flex-1 min-w-[140px] justify-end text-right">
+          <div class="flex-1">
+            <div class="flex items-center justify-between text-xs font-bold">
+              <span id="hud-p2-score" class="font-mono text-white tabular-nums">0000</span>
+              <span id="hud-p2-name" class="text-arcade-pink truncate max-w-[90px]">P2</span>
+            </div>
+            <!-- Segmented HP Bar -->
+            <div class="w-full h-2.5 bg-arcade-bg rounded-sm overflow-hidden border border-arcade-border mt-1 flex justify-end">
+              <div id="hud-p2-hp" class="h-full bg-arcade-pink transition-all duration-200" style="width: 100%"></div>
+            </div>
+          </div>
+          <div class="w-10 h-10 rounded-lg bg-arcade-bg border border-arcade-pink flex items-center justify-center text-xl shrink-0">
+            <span id="hud-p2-avatar">🤖</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Canvas Viewport Container -->
+      <div id="canvas-wrapper" class="relative w-full aspect-[4/3] sm:aspect-[16/10] max-h-[65vh] bg-[#06070E] border-2 border-arcade-border rounded-2xl overflow-hidden shadow-[0_0_30px_rgba(0,0,0,0.8)] flex items-center justify-center">
+        
+        <canvas id="game-canvas" width="800" height="500" class="w-full h-full object-contain block"></canvas>
+
+        <!-- Floating Emotes Layer -->
+        <div id="emote-overlay" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+
+        <!-- Disconnect Grace Period Overlay (15s Reconnect) -->
+        <div id="disconnect-overlay" class="hidden absolute inset-0 bg-arcade-bg/85 backdrop-blur-sm flex flex-col items-center justify-center gap-3 z-25 p-6 text-center">
+          <div class="text-4xl animate-pulse">📡</div>
+          <h3 class="font-display-vi font-bold text-xl sm:text-2xl text-arcade-pink">ĐỐI THỦ MẤT KẾT NỐI</h3>
+          <p class="text-xs sm:text-sm text-slate-300 max-w-sm">
+            Đang giữ phòng chờ đối thủ kết nối lại trong
+            <span id="disconnect-countdown" class="font-mono font-bold text-arcade-yellow text-lg">15</span> giây...
+          </p>
+        </div>
+
+        <!-- Pause Overlay Modal -->
+        <div id="pause-overlay" class="hidden absolute inset-0 bg-arcade-bg/85 backdrop-blur-sm flex flex-col items-center justify-center gap-4 z-20 p-4">
+          <h3 class="font-display-vi font-bold text-2xl sm:text-3xl text-arcade-yellow">TẠM DỪNG TRẬN ĐẤU</h3>
+          <div class="flex flex-col sm:flex-row gap-3 w-full max-w-xs">
+            <button onclick="togglePauseGame()" class="arcade-btn flex-1 py-3 rounded-xl bg-arcade-cyan text-arcade-bg text-sm">
+              Tiếp Tục Chơi
+            </button>
+            <button onclick="exitToLobby()" class="arcade-btn flex-1 py-3 rounded-xl bg-arcade-surface border border-arcade-border text-white text-sm">
+              Thoát Ra Sảnh
+            </button>
+          </div>
+        </div>
+
+        <!-- Game Over / Victory Summary Modal -->
+        <div id="gameover-overlay" class="hidden absolute inset-0 bg-arcade-bg/90 backdrop-blur-md flex flex-col items-center justify-center gap-4 z-30 p-6 text-center">
+          <div class="text-5xl animate-bounce">🏆</div>
+          <h3 id="winner-title" class="font-display-vi font-bold text-2xl sm:text-4xl text-arcade-yellow">NGƯỜI CHƠI 1 CHIẾN THẮNG!</h3>
+          <p id="winner-subtitle" class="text-sm text-slate-300 max-w-md">Trận đấu kịch tính với tỷ số áp đảo!</p>
+          <div id="gameover-reward-badge" class="hidden px-3 py-1 rounded-full bg-arcade-cyan/15 border border-arcade-cyan/40 text-arcade-cyan font-mono text-xs font-bold"></div>
+          
+          <div class="grid grid-cols-2 gap-4 w-full max-w-sm bg-arcade-surface border border-arcade-border rounded-xl p-4 my-1">
+            <div>
+              <div class="text-xs text-slate-400">Điểm P1</div>
+              <div id="final-p1-score" class="font-mono font-bold text-xl text-arcade-cyan">0</div>
+            </div>
+            <div>
+              <div class="text-xs text-slate-400">Điểm P2</div>
+              <div id="final-p2-score" class="font-mono font-bold text-xl text-arcade-pink">0</div>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap justify-center gap-3 w-full max-w-md">
+            <button onclick="startMatch()" class="arcade-btn px-6 py-3 rounded-xl bg-arcade-cyan text-arcade-bg text-sm flex items-center gap-2">
+              <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Chơi Lại Ngay
+            </button>
+            <button onclick="exitToLobby()" class="arcade-btn px-6 py-3 rounded-xl bg-arcade-surface border border-arcade-border text-white text-sm">
+              Về Sảnh Chính
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Emote Reactions & Desktop Key Guide -->
+      <div class="flex flex-wrap items-center justify-between gap-2 bg-arcade-surface/90 border border-arcade-border rounded-xl px-3 sm:px-4 py-2">
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs text-slate-400 mr-1 hidden sm:inline">Biểu cảm:</span>
+          <button onclick="sendEmote('🔥')" class="emote-btn min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] flex items-center justify-center rounded-lg bg-arcade-bg hover:bg-arcade-border text-base transition active:scale-90">🔥</button>
+          <button onclick="sendEmote('😂')" class="emote-btn min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] flex items-center justify-center rounded-lg bg-arcade-bg hover:bg-arcade-border text-base transition active:scale-90">😂</button>
+          <button onclick="sendEmote('GG!')" class="emote-btn min-w-[44px] min-h-[44px] sm:min-w-[44px] sm:min-h-[36px] px-2.5 flex items-center justify-center rounded-lg bg-arcade-bg hover:bg-arcade-border text-xs font-bold text-arcade-cyan transition active:scale-90">GG!</button>
+          <button onclick="sendEmote('😱')" class="emote-btn min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] flex items-center justify-center rounded-lg bg-arcade-bg hover:bg-arcade-border text-base transition active:scale-90">😱</button>
+          <button onclick="sendEmote('👑')" class="emote-btn min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] flex items-center justify-center rounded-lg bg-arcade-bg hover:bg-arcade-border text-base transition active:scale-90">👑</button>
+        </div>
+
+        <div class="hidden md:flex items-center gap-4 text-xs text-slate-400">
+          <span><strong class="text-arcade-cyan">P1:</strong> WASD di chuyển • SPACE bắn • SHIFT Nitro</span>
+          <span><strong class="text-arcade-pink">P2:</strong> Mũi tên di chuyển • ENTER bắn</span>
+        </div>
+
+        <button id="btn-exit-match" onclick="exitToLobby()" class="min-h-[44px] sm:min-h-0 px-2 text-xs font-semibold text-rose-400 hover:text-rose-300 flex items-center gap-1">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Thoát trận
+        </button>
+      </div>
+
+      <!-- =====================================================
+           MOBILE RESPONSIVE VIRTUAL GAMEPAD (TOUCH CONTROLS)
+      ====================================================== -->
+      <div id="mobile-controls" class="md:hidden grid grid-cols-2 gap-4 pt-1 pb-4 select-none touch-none">
+        
+        <!-- Left D-Pad (Touch Target >= 44x44px) -->
+        <div class="flex items-center justify-start pl-2">
+          <div class="relative w-36 h-36 bg-arcade-surface/80 rounded-full border-2 border-arcade-border flex items-center justify-center shadow-inner touch-none">
+            <button data-key="KeyW" class="touch-btn absolute top-1 left-1/2 -translate-x-1/2 w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg bg-arcade-bg border border-arcade-border active:bg-arcade-cyan active:text-arcade-bg flex items-center justify-center">
+              <i data-lucide="chevron-up" class="w-6 h-6"></i>
+            </button>
+            <button data-key="KeyS" class="touch-btn absolute bottom-1 left-1/2 -translate-x-1/2 w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg bg-arcade-bg border border-arcade-border active:bg-arcade-cyan active:text-arcade-bg flex items-center justify-center">
+              <i data-lucide="chevron-down" class="w-6 h-6"></i>
+            </button>
+            <button data-key="KeyA" class="touch-btn absolute left-1 top-1/2 -translate-y-1/2 w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg bg-arcade-bg border border-arcade-border active:bg-arcade-cyan active:text-arcade-bg flex items-center justify-center">
+              <i data-lucide="chevron-left" class="w-6 h-6"></i>
+            </button>
+            <button data-key="KeyD" class="touch-btn absolute right-1 top-1/2 -translate-y-1/2 w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg bg-arcade-bg border border-arcade-border active:bg-arcade-cyan active:text-arcade-bg flex items-center justify-center">
+              <i data-lucide="chevron-right" class="w-6 h-6"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Right Action Buttons (A / B) -->
+        <div class="flex items-center justify-end pr-3 gap-3 touch-none">
+          <button data-key="ShiftLeft" class="touch-btn w-14 h-14 min-w-[44px] min-h-[44px] rounded-full bg-arcade-yellow/20 border-2 border-arcade-yellow text-arcade-yellow active:bg-arcade-yellow active:text-arcade-bg font-display-vi font-bold text-lg shadow-lg flex items-center justify-center">
+            B
+          </button>
+          <button data-key="Space" class="touch-btn w-16 h-16 min-w-[44px] min-h-[44px] rounded-full bg-arcade-pink/20 border-2 border-arcade-pink text-arcade-pink active:bg-arcade-pink active:text-white font-display-vi font-bold text-xl shadow-lg flex items-center justify-center -mt-4">
+            A
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- =========================================================
+       MODALS (PROFILE & LEADERBOARD)
+  ========================================================== -->
+  <!-- Profile Customizer Modal -->
+  <div id="modal-profile" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-arcade-surface border-2 border-arcade-cyan rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 class="font-display-vi font-bold text-lg text-white">Hồ Sơ Người Chơi</h3>
+        <button onclick="closeProfileModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <label class="block text-xs font-semibold text-slate-400">Tên hiển thị của bạn</label>
+        <input id="input-player-name" type="text" maxlength="16" value="Player_VN"
+          class="w-full bg-arcade-bg border-2 border-arcade-border focus:border-arcade-cyan rounded-xl px-4 py-2.5 text-sm font-bold text-white outline-none" />
+      </div>
+
+      <div class="space-y-2">
+        <label class="block text-xs font-semibold text-slate-400">Chọn Avatar 8-Bit</label>
+        <div class="grid grid-cols-6 gap-2" id="avatar-selector">
+          <button onclick="selectAvatar('👾')" class="avatar-opt p-2.5 rounded-xl bg-arcade-bg border-2 border-arcade-cyan text-2xl">👾</button>
+          <button onclick="selectAvatar('🤖')" class="avatar-opt p-2.5 rounded-xl bg-arcade-bg border-2 border-arcade-border text-2xl">🤖</button>
+          <button onclick="selectAvatar('🦊')" class="avatar-opt p-2.5 rounded-xl bg-arcade-bg border-2 border-arcade-border text-2xl">🦊</button>
+          <button onclick="selectAvatar('🐲')" class="avatar-opt p-2.5 rounded-xl bg-arcade-bg border-2 border-arcade-border text-2xl">🐲</button>
+          <button onclick="selectAvatar('🚀')" class="avatar-opt p-2.5 rounded-xl bg-arcade-bg border-2 border-arcade-border text-2xl">🚀</button>
+          <button onclick="selectAvatar('🥷')" class="avatar-opt p-2.5 rounded-xl bg-arcade-bg border-2 border-arcade-border text-2xl">🥷</button>
+        </div>
+      </div>
+
+      <button onclick="saveProfile()" class="arcade-btn w-full py-3 rounded-xl bg-arcade-cyan text-arcade-bg text-sm">
+        Lưu Thay Đổi
+      </button>
+    </div>
+  </div>
+
+  <!-- Leaderboard Modal -->
+  <div id="modal-leaderboard" class="hidden fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-arcade-surface border-2 border-arcade-yellow rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i data-lucide="trophy" class="w-5 h-5 text-arcade-yellow"></i>
+          <h3 class="font-display-vi font-bold text-lg text-white">Bảng Xếp Hạng Cao Thủ</h3>
+        </div>
+        <button onclick="toggleLeaderboardModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div id="leaderboard-list" class="divide-y divide-arcade-border bg-arcade-bg rounded-xl border border-arcade-border overflow-hidden text-sm max-h-[60vh] overflow-y-auto">
+        <div class="p-4 text-center text-xs text-slate-400 font-mono">
+          Mở Bảng Xếp Hạng để tải dữ liệu cao thủ trực tiếp...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 hidden px-4 py-3 rounded-xl bg-arcade-surface border-2 border-arcade-cyan text-white text-xs sm:text-sm font-semibold shadow-2xl flex items-center gap-2">
+    <i data-lucide="bell" class="w-4 h-4 text-arcade-cyan"></i>
+    <span id="toast-msg">Thông báo</span>
+  </div>
+
+  <!-- =========================================================
+       JAVASCRIPT ENGINE: STATE, BACKEND SOCKET HOOKS & 5 GAMES
+  ========================================================== -->
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    /* ---------------------------------------------------------
+       1. CẤU HÌNH DỮ LIỆU & BACKEND API / WEBSOCKET HOOKS
+       (Bạn có thể kết nối trực tiếp Socket.io / WebSocket tại đây)
+    ---------------------------------------------------------- */
+    const GAMES_CATALOG = [
+      {
+        id: 'starfighter',
+        title: 'Bắn Tàu Bay Đôi',
+        subtitle: 'StarFighter 2P Co-op & VS',
+        category: 'action',
+        players: '2 Người Online / Chung Máy',
+        badge: 'HOT NHẤT',
+        badgeColor: 'bg-arcade-pink text-white',
+        icon: '🚀',
+        desc: 'Cùng đồng đội bắn hạ hạm đội ngoài hành tinh hoặc so tài điểm số trực tiếp.'
+      },
+      {
+        id: 'tank',
+        title: 'Xe Tăng Đại Chiến',
+        subtitle: 'Battle City 2P Arena',
+        category: 'action',
+        players: '2 Người Đối Kháng',
+        badge: 'CỔ ĐIỂN',
+        badgeColor: 'bg-arcade-yellow text-arcade-bg',
+        icon: '🛡️',
+        desc: 'Đấu tăng chiến thuật phá gạch, né đạn và thu thập vật phẩm tăng sức mạnh.'
+      },
+      {
+        id: 'racer',
+        title: 'Đua Xe Tốc Độ',
+        subtitle: 'Neon Pixel Racers 2P',
+        category: 'racing',
+        players: '2 Người Đua Tốc Độ',
+        badge: 'MỚI',
+        badgeColor: 'bg-arcade-cyan text-arcade-bg',
+        icon: '🏎️',
+        desc: 'Lách qua chướng ngại vật, ăn tăng tốc Nitro và cán đích trước đối thủ.'
+      },
+      {
+        id: 'pong',
+        title: 'Bóng Bàn Huyền Thoại',
+        subtitle: 'Cyber Pong 2P',
+        category: 'racing',
+        players: '2 Người Phản Xạ',
+        badge: 'NHANH',
+        badgeColor: 'bg-purple-500 text-white',
+        icon: '🏓',
+        desc: 'Phản xạ cực hạn với bóng tăng tốc dần sau mỗi cú đánh trả.'
+      },
+      {
+        id: 'caro',
+        title: 'Cờ Caro Siêu Tốc',
+        subtitle: 'Gomoku 8-Bit Duel',
+        category: 'board',
+        players: '2 Người Đấu Trí',
+        badge: 'TRÍ TUỆ',
+        badgeColor: 'bg-emerald-500 text-arcade-bg',
+        icon: '⭕',
+        desc: 'Đấu trí 5 quân thẳng hàng trên bàn cờ 15x15 phong cách pixel.'
+      }
+    ];
+
+    // Global App State
+    const AppState = {
+      currentView: 'lobby',
+      soundEnabled: true,
+      crtEnabled: true,
+      player: {
+        id: 'u_' + Math.random().toString(36).substring(2, 7),
+        name: 'Player_VN',
+        avatar: '👾',
+        role: 'P1' // 'P1' (Host) hoặc 'P2' (Guest)
+      },
+      room: {
+        code: null,
+        gameId: 'starfighter',
+        mode: 'local_or_tab',
+        isConnected: false
+      },
+      match: {
+        running: false,
+        paused: false,
+        timeLeft: 120,
+        p1Score: 0,
+        p2Score: 0,
+        p1Hp: 100,
+        p2Hp: 100
+      }
+    };
+
+    /* ---------------------------------------------------------
+       2. MULTIPLAYER SYNC LAYER (SOCKET.IO V4 + BROADCASTCHANNEL FALLBACK)
+       Giai doan 3 (MVP 2) & Giai doan 4 (Quick Emotes + Synced Screen Shake)
+    ---------------------------------------------------------- */
+    let syncChannel = null;
+    let disconnectCountdownTimer = null;
+
+    function showDisconnectOverlay(seconds) {
+      const ov = document.getElementById('disconnect-overlay');
+      const cd = document.getElementById('disconnect-countdown');
+      if (!ov || !cd) return;
+      let left = Math.max(1, seconds || 15);
+      cd.textContent = String(left);
+      ov.classList.remove('hidden');
+      AppState.match.paused = true;
+
+      if (disconnectCountdownTimer) clearInterval(disconnectCountdownTimer);
+      disconnectCountdownTimer = setInterval(() => {
+        left = Math.max(0, left - 1);
+        cd.textContent = String(left);
+        if (left <= 0) clearInterval(disconnectCountdownTimer);
+      }, 1000);
+    }
+
+    function hideDisconnectOverlay() {
+      if (disconnectCountdownTimer) clearInterval(disconnectCountdownTimer);
+      const ov = document.getElementById('disconnect-overlay');
+      if (ov) ov.classList.add('hidden');
+      AppState.match.paused = false;
+    }
+
+    function handleBroadcastMessage(msg) {
+      switch (msg.type) {
+        case 'PLAYER_JOINED':
+          document.getElementById('p2-room-name').textContent = msg.name;
+          document.getElementById('p2-room-avatar').textContent = msg.avatar;
+          document.getElementById('room-sync-status').textContent = '2 Người Đã Kết Nối!';
+          showToast(`${msg.name} đã vào phòng!`);
+          playSfx('powerup');
+          if (AppState.player.role === 'P1') {
+            sendNetworkEvent({
+              type: 'ROOM_STATE',
+              gameId: AppState.room.gameId,
+              p1Name: AppState.player.name,
+              p1Avatar: AppState.player.avatar
+            });
+          }
+          break;
+        case 'ROOM_STATE':
+          document.getElementById('p1-room-name').textContent = msg.p1Name;
+          document.getElementById('p1-room-avatar').textContent = msg.p1Avatar;
+          document.getElementById('room-game-select').value = msg.gameId;
+          AppState.room.gameId = msg.gameId;
+          break;
+        case 'CHANGE_GAME':
+          AppState.room.gameId = msg.gameId;
+          document.getElementById('room-game-select').value = msg.gameId;
+          showToast('Chủ phòng đã đổi trò chơi!');
+          break;
+        case 'START_MATCH':
+          if (!AppState.match.running) startMatch(true);
+          break;
+        case 'EMOTE':
+          renderFloatingEmote(msg.emote, msg.role === 'P1' ? 'left' : 'right');
+          break;
+        case 'SCREEN_SHAKE':
+          triggerShake();
+          break;
+        case 'P2_INPUT':
+          if (msg.isDown) keysPressed[msg.mappedKey] = true;
+          else delete keysPressed[msg.mappedKey];
+          break;
+        case 'CARO_MOVE':
+          if (AppState.room.gameId === 'caro' && window.caroState) {
+            handleCaroClick(msg.r, msg.c, true);
+          }
+          break;
+      }
+    }
+
+    if (window.NetworkSync) {
+      window.NetworkSync.init({
+        onConnectionChange: (connected) => {
+          AppState.room.isConnected = connected;
+          const pingEl = document.getElementById('server-ping-display');
+          if (pingEl && !connected) pingEl.textContent = 'OFFLINE (LOCAL)';
+        },
+        onPing: (rtt) => {
+          const pingEl = document.getElementById('server-ping-display');
+          if (pingEl) pingEl.textContent = `ONLINE (${rtt}ms)`;
+        },
+        onRoomState: ({ room }) => {
+          if (!room) return;
+          AppState.room.gameId = room.gameId;
+          AppState.room.mode = room.mode;
+          document.getElementById('room-game-select').value = room.gameId;
+          document.getElementById('room-mode-select').value = room.mode;
+          if (room.p1) {
+            document.getElementById('p1-room-name').textContent = room.p1.name;
+            document.getElementById('p1-room-avatar').textContent = room.p1.avatar;
+          }
+          if (room.p2) {
+            document.getElementById('p2-room-name').textContent = room.p2.name;
+            document.getElementById('p2-room-avatar').textContent = room.p2.avatar;
+            document.getElementById('room-sync-status').textContent = '2 Người Đã Kết Nối (Socket.io)!';
+          }
+        },
+        onPlayerJoined: ({ player, room }) => {
+          if (player) showToast(`${player.name} đã vào phòng!`);
+          playSfx('powerup');
+          if (room && room.p2) {
+            document.getElementById('p2-room-name').textContent = room.p2.name;
+            document.getElementById('p2-room-avatar').textContent = room.p2.avatar;
+            document.getElementById('room-sync-status').textContent = '2 Người Đã Kết Nối (Socket.io)!';
+          }
+        },
+        onPlayerLeft: ({ action }) => {
+          if (action === 'DESTROYED') {
+            showToast('Chủ phòng đã rời đi, phòng đã đóng.');
+            exitToLobby();
+          } else {
+            document.getElementById('p2-room-name').textContent = 'Người Chơi 2 / Bạn Bè';
+            document.getElementById('room-sync-status').textContent = 'Đang chờ người chơi 2...';
+            showToast('Đối thủ đã rời phòng!');
+          }
+        },
+        onGameChanged: ({ gameId }) => {
+          AppState.room.gameId = gameId;
+          document.getElementById('room-game-select').value = gameId;
+          showToast('Chủ phòng đã đổi trò chơi!');
+        },
+        onModeChanged: ({ mode }) => {
+          AppState.room.mode = mode;
+          document.getElementById('room-mode-select').value = mode;
+        },
+        onMatchStarted: ({ gameId, mode, matchId }) => {
+          AppState.room.gameId = gameId;
+          AppState.room.mode = mode || AppState.room.mode;
+          AppState.match.matchId = matchId || null;
+          hideDisconnectOverlay();
+          if (!AppState.match.running) startMatch(true);
+        },
+        onClientInput: (msg) => {
+          const targetKey = msg.mappedKey || (window.InputController && window.InputController.MAP_P1_TO_P2[msg.key]) || msg.key;
+          if (!targetKey) return;
+          if (msg.isDown) keysPressed[targetKey] = true;
+          else delete keysPressed[targetKey];
+        },
+        onGameState: (snap) => {
+          if (!snap || AppState.player.role === 'P1') return;
+          if (snap.match) {
+            AppState.match.p1Score = snap.match.p1Score;
+            AppState.match.p2Score = snap.match.p2Score;
+            AppState.match.p1Hp = snap.match.p1Hp;
+            AppState.match.p2Hp = snap.match.p2Hp;
+            AppState.match.timeLeft = snap.match.timeLeft;
+            const mins = String(Math.floor(AppState.match.timeLeft / 60)).padStart(2, '0');
+            const secs = String(AppState.match.timeLeft % 60).padStart(2, '0');
+            document.getElementById('hud-timer').textContent = `${mins}:${secs}`;
+            updateHudUI();
+          }
+          if (window.currentGameEngine && window.currentGameState && typeof window.currentGameEngine.applySnapshot === 'function') {
+            window.currentGameEngine.applySnapshot(window.currentGameState, snap);
+          }
+        },
+        onCaroMoveAccepted: (data) => {
+          if (AppState.room.gameId !== 'caro' || !window.caroState) return;
+          const st = window.caroState;
+          st.locked = false;
+          st.board[data.r][data.c] = data.player;
+          st.lastMove = { r: data.r, c: data.c, player: data.player };
+          st.moveCount++;
+          playSfx('blip');
+
+          if (data.win) {
+            st.finished = true;
+            st.winLine = data.winLine;
+            if (data.player === 1) AppState.match.p1Score += 500;
+            else AppState.match.p2Score += 500;
+            updateHudUI();
+            triggerShake();
+            endMatch(`NGƯỜI CHƠI ${data.player} THẮNG CỜ CARO!`, { skipServerEmit: true, rewards: data.rewards });
+          } else if (data.isDraw) {
+            st.finished = true;
+            endMatch('TRẬN ĐẤU HÒA KỊCH TÍNH!', { skipServerEmit: true, rewards: data.rewards });
+          } else {
+            st.turn = data.nextTurn === 'P1' ? 1 : 2;
+          }
+        },
+        onCaroMoveRejected: (data) => {
+          if (window.caroState) window.caroState.locked = false;
+          if (data && data.reason === 'NOT_YOUR_TURN') {
+            showToast('Chưa đến lượt của bạn!');
+          }
+        },
+        onReceiveEmote: (data) => {
+          if (!data || !data.emote) return;
+          // Tranh hien trung neu chinh minh da hien local truoc do qua fallback
+          if (data.senderId === AppState.player.id) return;
+          renderFloatingEmote(data.emote, data.role === 'P1' ? 'left' : 'right');
+          playSfx('blip');
+        },
+        onScreenShake: (data) => {
+          if (data && data.senderId === AppState.player.id) return;
+          triggerShake();
+        },
+        onPlayerDisconnected: (data) => {
+          showToast(`Đối thủ (${data.role}) mất kết nối! Chờ ${data.gracePeriod}s...`);
+          showDisconnectOverlay(data.gracePeriod || 15);
+        },
+        onPlayerReconnected: (data) => {
+          hideDisconnectOverlay();
+          showToast(`Đối thủ (${data.role}) đã kết nối lại! Tiếp tục chiến đấu!`);
+          playSfx('powerup');
+        },
+        onReconnectSuccess: (data) => {
+          if (!data || !data.room) return;
+          AppState.room.code = data.room.code;
+          AppState.room.gameId = data.room.gameId;
+          AppState.player.role = data.role;
+          hideDisconnectOverlay();
+          showToast('Đã kết nối lại phòng đấu thành công!');
+          if (data.room.status === 'PLAYING' && !AppState.match.running) {
+            startMatch(true);
+            if (data.caroState && window.caroState) {
+              window.caroState.board = data.caroState.board;
+              window.caroState.turn = data.caroState.turn === 'P1' ? 1 : 2;
+              window.caroState.moveCount = data.caroState.moveCount;
+            }
+          }
+        },
+        onMatchForfeited: (data) => {
+          hideDisconnectOverlay();
+          const title = data.winnerRole === 'P1'
+            ? 'NGƯỜI CHƠI 1 THẮNG DO ĐỐI THỦ THOÁT!'
+            : 'NGƯỜI CHƠI 2 THẮNG DO ĐỐI THỦ THOÁT!';
+          endMatch(title, { skipServerEmit: true, rewards: data.rewards });
+        },
+        onMatchFinished: (data) => {
+          if (!AppState.match.running) return;
+          AppState.match.p1Score = data.p1Score;
+          AppState.match.p2Score = data.p2Score;
+          updateHudUI();
+          endMatch(data.title || null, { skipServerEmit: true, rewards: data.rewards });
+        },
+        onBroadcastMessage: handleBroadcastMessage
+      });
+    }
+
+    function initNetworkSync(roomCode) {
+      if (window.NetworkSync) {
+        window.NetworkSync.joinRoom(roomCode, AppState.player, AppState.player.role, AppState.room.gameId);
+        return;
+      }
+      if (syncChannel) syncChannel.close();
+      syncChannel = new BroadcastChannel('arcade_room_' + roomCode);
+      syncChannel.onmessage = (event) => {
+        const msg = event.data;
+        if (!msg || msg.senderId === AppState.player.id) return;
+        handleBroadcastMessage(msg);
+      };
+    }
+
+    function sendNetworkEvent(payload) {
+      payload.senderId = AppState.player.id;
+      if (window.NetworkSync) {
+        if (payload.type === 'CHANGE_GAME') window.NetworkSync.sendChangeGame(payload.gameId);
+        else if (payload.type === 'START_MATCH') window.NetworkSync.sendStartMatch();
+        else if (payload.type === 'EMOTE') window.NetworkSync.sendEmote(payload.emote, payload.role);
+        else if (payload.type === 'P2_INPUT') window.NetworkSync.sendInputEvent(payload);
+        else if (payload.type === 'CARO_MOVE') window.NetworkSync.sendCaroMove(payload.r, payload.c);
+        else if (payload.type === 'SCREEN_SHAKE') window.NetworkSync.sendScreenShake(payload.reason, payload.intensity);
+        else window.NetworkSync.postBroadcast(payload);
+        return;
+      }
+      if (syncChannel) {
+        syncChannel.postMessage(payload);
+      }
+    }
+
+    window.broadcastScreenShake = function (reason) {
+      if (window.NetworkSync && window.NetworkSync.isSocketMultiplayer(AppState.room.mode)) {
+        window.NetworkSync.sendScreenShake(reason, 1);
+      }
+    };
+
+    /* ---------------------------------------------------------
+       3. WEB AUDIO API - BỘ TỔNG HỢP ÂM THANH 8-BIT KHÔNG CẦN FILE MP3
+    ---------------------------------------------------------- */
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playSfx(type) {
+      if (!AppState.soundEnabled) return;
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      const now = audioCtx.currentTime;
+
+      if (type === 'laser') {
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(720, now);
+        osc.frequency.exponentialRampToValueAtTime(140, now + 0.12);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      } else if (type === 'explosion') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(30, now + 0.25);
+        gain.gain.setValueAtTime(0.14, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      } else if (type === 'powerup') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.setValueAtTime(660, now + 0.08);
+        osc.frequency.setValueAtTime(880, now + 0.16);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+        osc.start(now);
+        osc.stop(now + 0.28);
+      } else if (type === 'blip') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(520, now);
+        gain.gain.setValueAtTime(0.06, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+        osc.start(now);
+        osc.stop(now + 0.06);
+      }
+    }
+
+    /* ---------------------------------------------------------
+       4. ĐIỀU HƯỚNG & GIAO DIỆN NGƯỜI DÙNG (UI CONTROLLERS)
+    ---------------------------------------------------------- */
+    function renderGamesGrid(filter = 'all') {
+      const grid = document.getElementById('games-grid');
+      const filtered = filter === 'all' ? GAMES_CATALOG : GAMES_CATALOG.filter(g => g.category === filter);
+
+      grid.innerHTML = filtered.map(game => `
+        <div class="arcade-box rounded-2xl p-5 flex flex-col justify-between gap-4">
+          <div class="space-y-3">
+            <div class="flex items-start justify-between gap-2">
+              <div class="w-14 h-14 rounded-xl bg-arcade-bg border border-arcade-border flex items-center justify-center text-3xl shadow-inner">
+                ${game.icon}
+              </div>
+              <span class="px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider ${game.badgeColor}">
+                ${game.badge}
+              </span>
+            </div>
+
+            <div>
+              <h3 class="font-display-vi font-bold text-lg text-white">${game.title}</h3>
+              <p class="text-xs font-mono text-arcade-cyan mt-0.5">${game.subtitle}</p>
+            </div>
+
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              ${game.desc}
+            </p>
+          </div>
+
+          <div class="pt-3 border-t border-arcade-border flex items-center justify-between gap-2">
+            <span class="text-[11px] text-slate-400 flex items-center gap-1">
+              <i data-lucide="users" class="w-3.5 h-3.5 text-arcade-cyan"></i> ${game.players}
+            </span>
+            <button onclick="createNewRoom('${game.id}')"
+              class="arcade-btn px-4 py-2 rounded-lg bg-arcade-cyan text-arcade-bg text-xs hover:brightness-110">
+              Chơi Ngay
+            </button>
+          </div>
+        </div>
+      `).join('');
+      lucide.createIcons();
+    }
+
+    function filterGames(category) {
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        if (btn.dataset.filter === category) {
+          btn.className = 'filter-btn active px-4 py-2 rounded-lg text-xs sm:text-sm font-bold bg-arcade-cyan text-arcade-bg transition whitespace-nowrap';
+        } else {
+          btn.className = 'filter-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-arcade-surface text-slate-300 border border-arcade-border hover:border-arcade-cyan transition whitespace-nowrap';
+        }
+      });
+      renderGamesGrid(category);
+      playSfx('blip');
+    }
+
+    function navigateTo(view) {
+      ['lobby', 'room', 'game'].forEach(v => {
+        document.getElementById('view-' + v).classList.add('hidden');
+      });
+      document.getElementById('view-' + view).classList.remove('hidden');
+      AppState.currentView = view;
+      if (window.InputController) {
+        window.InputController.setGameScrollLock(view === 'game');
+      }
+      if (view !== 'game' && window.inputCtrl) {
+        window.inputCtrl.clearAllKeys();
+      }
+    }
+
+    async function createNewRoom(gameId = 'starfighter') {
+      let code = Math.random().toString(36).substring(2, 6).toUpperCase();
+      if (window.LobbyManager) {
+        const room = await window.LobbyManager.createRoom(gameId, AppState.room.mode);
+        if (room && room.code) code = room.code;
+      }
+      AppState.room.code = code;
+      AppState.room.gameId = gameId;
+      AppState.player.role = 'P1';
+
+      document.getElementById('room-code-display').textContent = code;
+      document.getElementById('tip-room-code').textContent = code;
+      document.getElementById('room-game-select').value = gameId;
+      document.getElementById('p1-room-name').textContent = AppState.player.name;
+      document.getElementById('p1-room-avatar').textContent = AppState.player.avatar;
+
+      initNetworkSync(code);
+      navigateTo('room');
+      playSfx('powerup');
+    }
+
+    async function joinExistingRoom() {
+      const input = document.getElementById('input-join-code').value.trim().toUpperCase();
+      if (input.length < 4) {
+        showToast('Vui lòng nhập đủ 4 ký tự mã phòng!');
+        return;
+      }
+      await quickJoinRoom(input, 'starfighter');
+    }
+
+    async function quickJoinRoom(code, defaultGameId) {
+      if (window.LobbyManager) {
+        const res = await window.LobbyManager.joinRoom(code);
+        if (!res.success) {
+          showToast(res.message);
+          return;
+        }
+      }
+
+      AppState.room.code = code;
+      AppState.room.gameId = defaultGameId;
+      AppState.player.role = 'P2';
+
+      document.getElementById('room-code-display').textContent = code;
+      document.getElementById('tip-room-code').textContent = code;
+      document.getElementById('room-game-select').value = defaultGameId;
+      document.getElementById('p2-room-name').textContent = AppState.player.name;
+      document.getElementById('p2-room-avatar').textContent = AppState.player.avatar;
+
+      initNetworkSync(code);
+      sendNetworkEvent({
+        type: 'PLAYER_JOINED',
+        name: AppState.player.name,
+        avatar: AppState.player.avatar
+      });
+
+      navigateTo('room');
+      playSfx('powerup');
+    }
+
+    function changeRoomGame(gameId) {
+      AppState.room.gameId = gameId;
+      sendNetworkEvent({ type: 'CHANGE_GAME', gameId });
+      playSfx('blip');
+    }
+
+    function changePlayMode(mode) {
+      AppState.room.mode = mode;
+      if (mode === 'bot') {
+        document.getElementById('p2-room-name').textContent = 'Bot AI Siêu Cấp';
+        document.getElementById('p2-room-avatar').textContent = '🤖';
+      } else {
+        document.getElementById('p2-room-name').textContent = 'Người Chơi 2 / Bạn Bè';
+      }
+      if (window.NetworkSync) window.NetworkSync.sendChangeMode(mode);
+      playSfx('blip');
+    }
+
+    function copyRoomCode() {
+      navigator.clipboard.writeText(AppState.room.code);
+      showToast('Đã sao chép mã phòng: ' + AppState.room.code);
+      playSfx('blip');
+    }
+
+    function leaveRoom() {
+      if (window.NetworkSync) window.NetworkSync.leaveRoom();
+      if (syncChannel) syncChannel.close();
+      hideDisconnectOverlay();
+      navigateTo('lobby');
+    }
+
+    function saveUiPrefs() {
+      try {
+        localStorage.setItem('arcade_ui_prefs', JSON.stringify({
+          soundEnabled: AppState.soundEnabled,
+          crtEnabled: AppState.crtEnabled
+        }));
+      } catch (e) {}
+    }
+
+    function loadUiPrefs() {
+      try {
+        const raw = localStorage.getItem('arcade_ui_prefs');
+        if (!raw) return;
+        const prefs = JSON.parse(raw);
+        if (typeof prefs.soundEnabled === 'boolean') {
+          AppState.soundEnabled = prefs.soundEnabled;
+          const icon = document.getElementById('icon-sound');
+          if (icon) icon.setAttribute('data-lucide', AppState.soundEnabled ? 'volume-2' : 'volume-x');
+        }
+        if (typeof prefs.crtEnabled === 'boolean') {
+          AppState.crtEnabled = prefs.crtEnabled;
+          const crt = document.getElementById('crt-layer');
+          if (crt) crt.classList.toggle('hidden', !AppState.crtEnabled);
+        }
+        if (window.lucide) lucide.createIcons();
+      } catch (e) {}
+    }
+
+    function toggleSound() {
+      AppState.soundEnabled = !AppState.soundEnabled;
+      document.getElementById('icon-sound').setAttribute('data-lucide', AppState.soundEnabled ? 'volume-2' : 'volume-x');
+      if (window.lucide) lucide.createIcons();
+      saveUiPrefs();
+    }
+
+    function toggleCRT() {
+      AppState.crtEnabled = !AppState.crtEnabled;
+      document.getElementById('crt-layer').classList.toggle('hidden', !AppState.crtEnabled);
+      saveUiPrefs();
+    }
+
+    function openProfileModal() {
+      document.getElementById('modal-profile').classList.remove('hidden');
+    }
+    function closeProfileModal() {
+      document.getElementById('modal-profile').classList.add('hidden');
+    }
+    function selectAvatar(emoji) {
+      AppState.player.avatar = emoji;
+      document.querySelectorAll('.avatar-opt').forEach(b => {
+        b.classList.toggle('border-arcade-cyan', b.textContent === emoji);
+        b.classList.toggle('border-arcade-border', b.textContent !== emoji);
+      });
+    }
+    function saveProfile() {
+      const val = document.getElementById('input-player-name').value.trim();
+      if (window.GuestAuth) {
+        const updated = window.GuestAuth.updateProfile(val, AppState.player.avatar);
+        AppState.player.name = updated.name;
+        AppState.player.avatar = updated.avatar;
+      } else {
+        if (val) AppState.player.name = val;
+        document.getElementById('player-name-display').textContent = AppState.player.name;
+        document.getElementById('player-avatar-display').textContent = AppState.player.avatar;
+      }
+      closeProfileModal();
+      showToast('Đã cập nhật hồ sơ!');
+    }
+
+    function toggleLeaderboardModal() {
+      const modal = document.getElementById('modal-leaderboard');
+      const willOpen = modal.classList.contains('hidden');
+      modal.classList.toggle('hidden');
+      if (willOpen && window.LeaderboardUI) {
+        window.LeaderboardUI.renderLeaderboard(AppState.player.id, 10);
+      }
+    }
+
+    window.onMatchRewardsReceived = function (result) {
+      if (!result || !result.rewards) return;
+      const rw = result.rewards;
+      const isP1 = AppState.player.role === 'P1';
+      const delta = isP1 ? rw.p1Delta : rw.p2Delta;
+      const total = isP1 ? rw.p1TotalScore : rw.p2TotalScore;
+      const level = isP1 ? rw.p1Level : rw.p2Level;
+
+      const badge = document.getElementById('gameover-reward-badge');
+      if (badge && delta > 0) {
+        badge.textContent = `Điểm thưởng xếp hạng: +${delta} Đ (Tổng: ${Number(total).toLocaleString('en-US')} Đ)`;
+        badge.classList.remove('hidden');
+      }
+      if (window.LeaderboardUI && typeof total === 'number') {
+        window.LeaderboardUI.updateHeaderStats(total, level);
+      }
+    };
+
+    window.recordLocalMatchResult = async function ({ roomCode, gameId, p1Score, p2Score, winnerRole, mode }) {
+      if (!window.LeaderboardUI) return;
+      const p1 = { id: AppState.player.id, name: AppState.player.name, avatar: AppState.player.avatar };
+      const p2 = mode === 'bot'
+        ? { id: 'bot_ai', name: 'Bot AI Siêu Cấp', avatar: '🤖' }
+        : { id: 'u_local_p2', name: document.getElementById('hud-p2-name')?.textContent || 'Người Chơi 2', avatar: '🤖' };
+      const winnerId = winnerRole === 'P1' ? p1.id : (winnerRole === 'P2' ? p2.id : null);
+      const durationSec = Math.max(1, 90 - (AppState.match.timeLeft || 0));
+
+      const res = await window.LeaderboardUI.submitMatchFinish({
+        roomCode,
+        gameId,
+        p1,
+        p2,
+        p1Score,
+        p2Score,
+        winnerId,
+        durationSec
+      });
+      if (res) window.onMatchRewardsReceived(res);
+    };
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 2800);
+    }
+
+    function sendEmote(emoji) {
+      if (window.NetworkSync) {
+        const ok = window.NetworkSync.sendEmote(emoji, AppState.player.role);
+        if (!ok) return;
+      } else {
+        sendNetworkEvent({ type: 'EMOTE', emote: emoji, role: AppState.player.role });
+      }
+      renderFloatingEmote(emoji, AppState.player.role === 'P1' ? 'left' : 'right');
+      playSfx('blip');
+    }
+
+    function renderFloatingEmote(emoji, side) {
+      const layer = document.getElementById('emote-overlay');
+      const el = document.createElement('div');
+      el.className = 'emote-popup absolute bottom-12 px-3 py-1 rounded-full bg-arcade-surface/90 border border-arcade-cyan text-xl font-bold shadow-lg';
+      el.dataset.side = side;
+      el.style[side] = '15%';
+      el.textContent = emoji;
+      layer.appendChild(el);
+      setTimeout(() => el.remove(), 1800);
+    }
+
+    /* ---------------------------------------------------------
+       5. BỘ ĐIỀU KHIỂN PHÍM BẤM & MOBILE TOUCH CONTROLS (PHASE 2)
+    ---------------------------------------------------------- */
+    const keysPressed = {};
+
+    if (window.InputController) {
+      window.inputCtrl = window.InputController.createController({
+        keysPressed,
+        getRole: () => AppState.player.role,
+        getCurrentView: () => AppState.currentView,
+        onP2Input: (payload) => {
+          sendNetworkEvent({
+            type: 'P2_INPUT',
+            key: payload.key,
+            mappedKey: payload.mappedKey,
+            isDown: payload.isDown,
+            seq: payload.seq,
+            timestamp: payload.timestamp
+          });
+        }
+      });
+      window.inputCtrl.attach();
+    }
+
+    /* ---------------------------------------------------------
+       6. GAME ENGINE (HTML5 CANVAS 60FPS CHO CẢ 5 TRÒ CHƠI)
+    ---------------------------------------------------------- */
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+    let animFrameId = null;
+    let timerInterval = null;
+
+    function startMatch(fromNetwork = false) {
+      if (!fromNetwork) sendNetworkEvent({ type: 'START_MATCH' });
+
+      navigateTo('game');
+      document.getElementById('pause-overlay').classList.add('hidden');
+      document.getElementById('gameover-overlay').classList.add('hidden');
+      const rwBadge = document.getElementById('gameover-reward-badge');
+      if (rwBadge) rwBadge.classList.add('hidden');
+
+      const gameObj = GAMES_CATALOG.find(g => g.id === AppState.room.gameId);
+      document.getElementById('hud-game-title').textContent = gameObj.title;
+      document.getElementById('hud-p1-name').textContent = document.getElementById('p1-room-name').textContent;
+      document.getElementById('hud-p2-name').textContent = document.getElementById('p2-room-name').textContent;
+      document.getElementById('hud-p1-avatar').textContent = document.getElementById('p1-room-avatar').textContent;
+      document.getElementById('hud-p2-avatar').textContent = document.getElementById('p2-room-avatar').textContent;
+
+      AppState.match.running = true;
+      AppState.match.paused = false;
+      AppState.match.timeLeft = 90;
+      AppState.match.p1Score = 0;
+      AppState.match.p2Score = 0;
+      AppState.match.p1Hp = 100;
+      AppState.match.p2Hp = 100;
+      updateHudUI();
+
+      initSelectedGameEngine(AppState.room.gameId);
+
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (!AppState.match.running || AppState.match.paused) return;
+        AppState.match.timeLeft--;
+        const mins = String(Math.floor(AppState.match.timeLeft / 60)).padStart(2, '0');
+        const secs = String(AppState.match.timeLeft % 60).padStart(2, '0');
+        document.getElementById('hud-timer').textContent = `${mins}:${secs}`;
+
+        if (AppState.match.timeLeft <= 0) {
+          endMatch();
+        }
+      }, 1000);
+    }
+
+    function updateHudUI() {
+      document.getElementById('hud-p1-score').textContent = String(AppState.match.p1Score).padStart(4, '0');
+      document.getElementById('hud-p2-score').textContent = String(AppState.match.p2Score).padStart(4, '0');
+      document.getElementById('hud-p1-hp').style.width = Math.max(0, AppState.match.p1Hp) + '%';
+      document.getElementById('hud-p2-hp').style.width = Math.max(0, AppState.match.p2Hp) + '%';
+    }
+
+    function triggerShake() {
+      const wrap = document.getElementById('canvas-wrapper');
+      wrap.classList.remove('shake-effect');
+      void wrap.offsetWidth;
+      wrap.classList.add('shake-effect');
+    }
+
+    function togglePauseGame() {
+      AppState.match.paused = !AppState.match.paused;
+      document.getElementById('pause-overlay').classList.toggle('hidden', !AppState.match.paused);
+    }
+
+    function exitToLobby() {
+      AppState.match.running = false;
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      if (timerInterval) clearInterval(timerInterval);
+      hideDisconnectOverlay();
+      if (window.NetworkSync) window.NetworkSync.leaveRoom();
+      navigateTo('lobby');
+    }
+
+    function endMatch(customWinnerText = null, opts = {}) {
+      AppState.match.running = false;
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      if (timerInterval) clearInterval(timerInterval);
+      hideDisconnectOverlay();
+
+      let title = customWinnerText;
+      let winnerRole = null;
+      if (!title) {
+        if (AppState.match.p1Score > AppState.match.p2Score) {
+          title = 'NGƯỜI CHƠI 1 CHIẾN THẮNG!';
+          winnerRole = 'P1';
+        } else if (AppState.match.p2Score > AppState.match.p1Score) {
+          title = 'NGƯỜI CHƠI 2 CHIẾN THẮNG!';
+          winnerRole = 'P2';
+        } else {
+          title = 'TRẬN ĐẤU HÒA KỊCH TÍNH!';
+        }
+      } else {
+        if (title.includes('1')) winnerRole = 'P1';
+        else if (title.includes('2')) winnerRole = 'P2';
+      }
+
+      document.getElementById('winner-title').textContent = title;
+      document.getElementById('final-p1-score').textContent = AppState.match.p1Score;
+      document.getElementById('final-p2-score').textContent = AppState.match.p2Score;
+      document.getElementById('gameover-overlay').classList.remove('hidden');
+      playSfx('powerup');
+
+      // Gui ket qua len Server qua Socket (Multiplayer) hoac REST API (Single/Bot)
+      if (!opts.skipServerEmit && window.NetworkSync && window.NetworkSync.isSocketMultiplayer(AppState.room.mode)) {
+        if (AppState.player.role === 'P1') {
+          window.NetworkSync.sendMatchEnded({
+            p1Score: AppState.match.p1Score,
+            p2Score: AppState.match.p2Score,
+            winnerRole,
+            title
+          });
+        }
+      } else if (!opts.skipServerEmit && typeof window.recordLocalMatchResult === 'function') {
+        window.recordLocalMatchResult({
+          roomCode: AppState.room.code || 'LOCL',
+          gameId: AppState.room.gameId,
+          p1Score: AppState.match.p1Score,
+          p2Score: AppState.match.p2Score,
+          winnerRole,
+          mode: AppState.room.mode
+        });
+      } else if (opts.rewards && typeof window.onMatchRewardsReceived === 'function') {
+        window.onMatchRewardsReceived(opts.rewards);
+      }
+    }
+
+    /* ---------------------------------------------------------
+       7. LOGIC CHI TIẾT TỪNG TRÒ CHƠI 8-BIT (SỬ DỤNG GameEngine)
+    ---------------------------------------------------------- */
+    window.currentGameState = null;
+    window.currentGameEngine = null;
+    let lastSyncPushTs = 0;
+
+    function handleEngineEvents(events) {
+      if (!events || events.length === 0) return;
+      for (const ev of events) {
+        if (ev.type === 'hud') updateHudUI();
+        else if (ev.type === 'sfx') playSfx(ev.sound);
+        else if (ev.type === 'shake') {
+          triggerShake();
+          if (typeof window.broadcastScreenShake === 'function') {
+            window.broadcastScreenShake(ev.reason || 'impact');
+          }
+        } else if (ev.type === 'endMatch') {
+          endMatch(ev.title);
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function initSelectedGameEngine(gameId) {
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      canvas.onclick = null;
+      canvas.ontouchstart = null;
+
+      const Engine = window.GameEngine && window.GameEngine.ENGINES[gameId];
+      if (!Engine) return;
+
+      const state = Engine.createState();
+      window.currentGameState = state;
+      window.currentGameEngine = Engine;
+
+      if (gameId === 'caro') {
+        window.caroState = state;
+
+        let lastTouchTs = 0;
+        const handleBoardPointer = (e, isTouch) => {
+          if (AppState.room.gameId !== 'caro' || !AppState.match.running || AppState.match.paused) return;
+          if (isTouch) {
+            if (e.cancelable) e.preventDefault();
+            lastTouchTs = Date.now();
+          } else if (Date.now() - lastTouchTs < 400) {
+            // Chan synthetic click phat sinh ngay sau touchstart tren mobile
+            return;
+          }
+
+          const coords = window.InputController.extractClientCoords(e);
+          if (!coords) return;
+          const pt = window.InputController.clientToCanvasCoords(canvas, coords.clientX, coords.clientY);
+          if (!pt.inBounds) return;
+          const cell = Engine.canvasToCell(pt.x, pt.y);
+          if (cell) {
+            handleCaroClick(cell.r, cell.c, false);
+          }
+        };
+
+        canvas.onclick = (e) => handleBoardPointer(e, false);
+        canvas.ontouchstart = (e) => handleBoardPointer(e, true);
+
+        window.handleCaroClick = (r, c, fromRemote, serverResult = null) => {
+          const st = window.caroState;
+          if (!st || st.finished) return;
+
+          // Neu dang choi Online Socket -> gui len Server kiem duyet chong cheat truoc
+          if (!fromRemote && window.NetworkSync && window.NetworkSync.isSocketMultiplayer(AppState.room.mode)) {
+            if (st.locked) return;
+            st.locked = true;
+            window.NetworkSync.sendCaroMove(r, c);
+            return;
+          }
+
+          const res = Engine.applyMove(st, r, c, {
+            fromRemote: !!fromRemote,
+            expectedPlayer: serverResult ? serverResult.player : null
+          });
+          if (!res.ok) return;
+
+          st.locked = false;
+          playSfx('blip');
+
+          if (!fromRemote) {
+            sendNetworkEvent({ type: 'CARO_MOVE', r, c });
+          }
+
+          if (res.win) {
+            if (res.player === 1) AppState.match.p1Score += 500;
+            else AppState.match.p2Score += 500;
+            updateHudUI();
+            triggerShake();
+            endMatch(`NGƯỜI CHƠI ${res.player} THẮNG CỜ CARO!`);
+            return;
+          }
+
+          if (res.isDraw) {
+            updateHudUI();
+            endMatch('TRẬN ĐẤU HÒA KỊCH TÍNH!');
+            return;
+          }
+
+          // Bot AI move (ban kinh 2 o quanh P1)
+          if (AppState.room.mode === 'bot' && st.turn === 2) {
+            st.locked = true;
+            setTimeout(() => {
+              if (!AppState.match.running || st.finished) return;
+              const botMove = Engine.pickBotMove(st);
+              st.locked = false;
+              if (botMove) {
+                handleCaroClick(botMove.r, botMove.c, true);
+              }
+            }, 240);
+          }
+        };
+
+        function caroLoop() {
+          if (!AppState.match.running) return;
+          Engine.render(ctx, state);
+          animFrameId = requestAnimationFrame(caroLoop);
+        }
+        caroLoop();
+        return;
+      }
+
+      // Action games loop (StarFighter, Tank, Pong, Racer)
+      function actionLoop() {
+        if (!AppState.match.running) return;
+        const isRemoteGuest = (
+          AppState.player.role === 'P2' &&
+          AppState.room.mode !== 'bot' &&
+          window.NetworkSync &&
+          window.NetworkSync.isSocketMultiplayer(AppState.room.mode)
+        );
+
+        if (!AppState.match.paused && !isRemoteGuest) {
+          const events = Engine.step(state, keysPressed, AppState.match, AppState.room.mode);
+          const ended = handleEngineEvents(events);
+          if (ended) return;
+
+          // Host (P1) broadcast snapshot 30-45 Hz cho Guest P2 qua Socket.io
+          if (
+            AppState.player.role === 'P1' &&
+            window.NetworkSync &&
+            window.NetworkSync.isSocketMultiplayer(AppState.room.mode)
+          ) {
+            const now = performance.now();
+            if (now - lastSyncPushTs >= 25) {
+              lastSyncPushTs = now;
+              window.NetworkSync.sendHostStateSync(Engine.getSnapshot(state, AppState.match));
+            }
+          }
+        }
+
+        Engine.render(ctx, state);
+        animFrameId = requestAnimationFrame(actionLoop);
+      }
+      actionLoop();
+    }
+
+    function checkCaroWin(board, r, c, player) {
+      if (window.GameEngine) return window.GameEngine.checkCaroWin(board, r, c, player);
+      const dirs = [[1,0],[0,1],[1,1],[1,-1]];
+      for (const [dr, dc] of dirs) {
+        let count = 1;
+        for (let s = 1; s < 5; s++) {
+          if (board[r + dr*s]?.[c + dc*s] === player) count++; else break;
+        }
+        for (let s = 1; s < 5; s++) {
+          if (board[r - dr*s]?.[c - dc*s] === player) count++; else break;
+        }
+        if (count >= 5) return true;
+      }
+      return false;
+    }
+
+    // Boot App & Init MVP Modules
+    loadUiPrefs();
+    if (window.GuestAuth) {
+      const profile = window.GuestAuth.initGuestAuth();
+      AppState.player.id = profile.id;
+      AppState.player.name = profile.name;
+      AppState.player.avatar = profile.avatar;
+    }
+    if (window.LobbyManager) {
+      window.LobbyManager.renderPublicRoomsList();
+    }
+    if (window.LeaderboardUI) {
+      window.LeaderboardUI.fetchPlayerStats(AppState.player.id).then((st) => {
+        if (st) window.LeaderboardUI.updateHeaderStats(st.totalScore, st.level);
+      });
+    }
+    renderGamesGrid('all');
+  </script>
+</body>
+</html>

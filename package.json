@@ -1,5 +1,5 @@
 {
-  "name": "p05",
+  "name": "game-8-bit",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -8,24 +8,39 @@
     "dev:next": "next dev",
     "build": "next build",
     "lint": "eslint",
-    "test": "node tests/test_mvp1.js && node tests/test_phase2_games_mobile.js && node tests/test_phase3_socket_sync.js && node tests/test_phase4_social_ux.js && node tests/test_phase5_db_leaderboard.js"
+    "test": "node tests/test_mvp1.js && node tests/test_phase2_games_mobile.js && node tests/test_phase3_socket_sync.js && node tests/test_phase4_social_ux.js && node tests/test_phase5_db_leaderboard.js",
+    "dev:vinext": "vite dev --port 3001",
+    "build:vinext": "vite build",
+    "start:vinext": "vite preview",
+    "deploy:vinext": "vinext-cloudflare deploy",
+    "deploy": "cf deploy"
   },
   "dependencies": {
+    "@vinext/cloudflare": "^1.4.0",
     "next": "16.4.3",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
-    "socket.io": "^4.8.4"
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-server-dom-webpack": "^19.3.1",
+    "socket.io": "^4.8.4",
+    "vinext": "^1.4.6"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^2.0.0-rc.5",
+    "@tailwindcss/postcss": "^4.3.5",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.3.0",
+    "@vitejs/plugin-rsc": "^0.5.39",
     "babel-plugin-react-compiler": "1.0.0",
+    "cf": "^1.0.0-rc.5",
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
     "socket.io-client": "^4.8.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
-  }
+    "typescript": "^5",
+    "vite": "^8.3.0"
+  },
+  "type": "module"
 }
