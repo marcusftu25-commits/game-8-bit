@@ -12,6 +12,7 @@ console.log('✅ Test 1 Passed: Danh sách ngôn ngữ hợp lệ (vi, en, zh)')
 // Test 2: Default Language
 assert.strictEqual(i18n.getLanguage(), 'vi', 'Mặc định là Tiếng Việt');
 assert.strictEqual(i18n.t('hero_title'), TRANSLATIONS.vi.hero_title);
+assert(i18n.t('hero_title_html').includes('THÁCH ĐẤU BẠN BÈ'), 'Tiêu đề tiếng Việt có gradient HTML');
 console.log('✅ Test 2 Passed: Mặc định Tiếng Việt');
 
 // Test 3: Language Switching to English
@@ -24,15 +25,18 @@ const switchSuccess = i18n.setLanguage('en');
 assert.strictEqual(switchSuccess, true, 'Đổi sang English thành công');
 assert.strictEqual(i18n.getLanguage(), 'en');
 assert.strictEqual(notifiedLang, 'en', 'Listener nhận được thông báo đổi ngôn ngữ');
-assert.strictEqual(i18n.t('hero_title'), 'RETRO 8-BIT ONLINE DUO ARENA');
-assert.strictEqual(i18n.t('btn_create_room'), 'CREATE ROOM');
-console.log('✅ Test 3 Passed: Đổi sang English chính xác');
+assert(i18n.t('hero_title_html').includes('CHALLENGE YOUR FRIENDS'), 'Tiêu đề HTML tiếng Anh chính xác');
+assert.strictEqual(i18n.t('online_players_count'), '128 Players Online');
+assert.strictEqual(i18n.t('tab_all'), 'All Games (5)');
+assert.strictEqual(i18n.t('tab_action'), 'Action & Shooter');
+console.log('✅ Test 3 Passed: Đổi sang English chính xác toàn diện');
 
 // Test 4: Language Switching to Chinese (zh)
 i18n.setLanguage('zh');
 assert.strictEqual(i18n.getLanguage(), 'zh');
-assert.strictEqual(i18n.t('hero_title'), '复古 8-BIT 在线双人对决街机');
-assert.strictEqual(i18n.t('btn_create_room'), '创建房间');
+assert(i18n.t('hero_title_html').includes('在复古像素世界中'), 'Tiêu đề HTML tiếng Trung chính xác');
+assert.strictEqual(i18n.t('online_players_count'), '128 人在线');
+assert.strictEqual(i18n.t('tab_all'), '全部游戏 (5)');
 console.log('✅ Test 4 Passed: Đổi sang Chinese (zh) chính xác');
 
 // Test 5: Fallback behavior on missing / invalid language
@@ -43,6 +47,28 @@ assert.strictEqual(i18n.getLanguage(), 'zh', 'Giữ nguyên ngôn ngữ hiện t
 // Fallback on missing key
 const missingKey = i18n.t('non_existent_key_xyz', 'Fallback Custom');
 assert.strictEqual(missingKey, 'Fallback Custom', 'Fallback hoạt động chính xác khi thiếu key');
-console.log('✅ Test 5 Passed: Fallback và xử lý lỗi hoàn hảo');
+
+// Test 6: Mock DOM applyToDOM for text and html attributes
+const mockTextEl = {
+  getAttribute: (name) => (name === 'data-i18n' ? 'online_players_count' : null),
+  textContent: 'Old Text'
+};
+const mockHtmlEl = {
+  getAttribute: (name) => (name === 'data-i18n-html' ? 'hero_title_html' : null),
+  innerHTML: 'Old HTML'
+};
+const mockRoot = {
+  querySelectorAll: (selector) => {
+    if (selector === '[data-i18n]') return [mockTextEl];
+    if (selector === '[data-i18n-html]') return [mockHtmlEl];
+    return [];
+  },
+  querySelector: () => null
+};
+
+i18n.applyToDOM(mockRoot);
+assert.strictEqual(mockTextEl.textContent, '128 人在线');
+assert(mockHtmlEl.innerHTML.includes('在复古像素世界中'));
+console.log('✅ Test 6 Passed: applyToDOM quét và cập nhật cả text lẫn rich HTML');
 
 console.log('🎉 TẤT CẢ TEST i18n ĐỀU THÀNH CÔNG (100% PASSED)!');

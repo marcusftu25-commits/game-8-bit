@@ -304,7 +304,7 @@
               <span data-i18n="hero_badge">Hỗ trợ chơi 2 người Online & Chia đôi bàn phím</span>
             </div>
 
-            <h2 class="font-display-vi font-bold text-2xl sm:text-4xl text-white leading-tight">
+            <h2 class="font-display-vi font-bold text-2xl sm:text-4xl text-white leading-tight" data-i18n-html="hero_title_html">
               THÁCH ĐẤU BẠN BÈ TRONG THẾ GIỚI <span class="text-transparent bg-clip-text bg-gradient-to-r from-arcade-cyan via-arcade-yellow to-arcade-pink">GAME 8-BIT</span>
             </h2>
 
@@ -338,7 +338,7 @@
                 <span class="text-xs font-bold text-slate-400 uppercase flex items-center gap-1.5">
                   <span class="w-2 h-2 rounded-full bg-arcade-pink animate-pulse"></span> <span data-i18n="active_rooms_title">Phòng Đang Hoạt Động</span>
                 </span>
-                <span class="text-xs font-mono text-arcade-cyan">128 Người Online</span>
+                <span class="text-xs font-mono text-arcade-cyan" data-i18n="online_players_count">128 Người Online</span>
               </div>
               
               <!-- Live Public Rooms List (Hook for Backend API) -->
@@ -372,22 +372,22 @@
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div class="flex items-center gap-2 overflow-x-auto pb-1">
           <button onclick="filterGames('all')" data-filter="all" class="filter-btn active px-4 py-2 rounded-lg text-xs sm:text-sm font-bold bg-arcade-cyan text-arcade-bg transition whitespace-nowrap">
-            Tất Cả Trò Chơi (5)
+            <span data-i18n="tab_all">Tất Cả Trò Chơi (5)</span>
           </button>
           <button onclick="filterGames('action')" data-filter="action" class="filter-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-arcade-surface text-slate-300 border border-arcade-border hover:border-arcade-cyan transition whitespace-nowrap">
-            Bắn Súng & Hành Động
+            <span data-i18n="tab_action">Bắn Súng & Hành Động</span>
           </button>
           <button onclick="filterGames('racing')" data-filter="racing" class="filter-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-arcade-surface text-slate-300 border border-arcade-border hover:border-arcade-cyan transition whitespace-nowrap">
-            Đua Xe & Thể Thao
+            <span data-i18n="tab_racing">Đua Xe & Thể Thao</span>
           </button>
           <button onclick="filterGames('board')" data-filter="board" class="filter-btn px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-arcade-surface text-slate-300 border border-arcade-border hover:border-arcade-cyan transition whitespace-nowrap">
-            Trí Tuệ 2 Người
+            <span data-i18n="tab_board">Trí Tuệ 2 Người</span>
           </button>
         </div>
 
         <button onclick="toggleLeaderboardModal()" class="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-arcade-surface border border-arcade-yellow/50 text-arcade-yellow hover:bg-arcade-yellow/10 text-xs sm:text-sm font-bold transition">
           <i data-lucide="trophy" class="w-4 h-4"></i>
-          <span>Bảng Xếp Hạng</span>
+          <span data-i18n="btn_leaderboard">Bảng Xếp Hạng</span>
         </button>
       </div>
 
@@ -1405,6 +1405,9 @@
       if (typeof renderGamesGrid === 'function') {
         const activeFilter = document.querySelector('.filter-btn.active')?.dataset?.filter || 'all';
         renderGamesGrid(activeFilter);
+      }
+      if (window.LobbyManager && typeof window.LobbyManager.renderPublicRoomsList === 'function') {
+        window.LobbyManager.renderPublicRoomsList();
       }
       playSfx('blip');
     }

@@ -33,27 +33,43 @@
 
       // Hero & Lobby
       hero_title: 'ĐẤU TRƯỜNG RETRO 8-BIT TRỰC TUYẾN',
-      hero_badge: 'MÁY CHỦ REAL-TIME CHỐNG LAG',
-      hero_desc: 'Trải nghiệm đối kháng arcade thời gian thực mượt mà giữa PC và Mobile. Không cần tải app, chơi ngay tức thì!',
-      btn_create_room: 'TẠO PHÒNG MỚI',
-      btn_join_room: 'VÀO PHÒNG',
-      btn_leaderboard: 'BẢNG XẾP HẠNG',
+      hero_title_html: 'THÁCH ĐẤU BẠN BÈ TRONG THẾ GIỚI <span class="text-transparent bg-clip-text bg-gradient-to-r from-arcade-cyan via-arcade-yellow to-arcade-pink">GAME 8-BIT</span>',
+      hero_badge: 'Hỗ trợ chơi 2 người Online & Chia đôi bàn phím',
+      hero_desc: 'Tạo phòng riêng trong 1 giây, gửi mã 4 ký tự cho bạn bè hoặc mở 2 tab trình duyệt để trải nghiệm đồng bộ thời gian thực mượt mà trên cả điện thoại và máy tính.',
+      btn_create_room: 'Tạo Phòng Chơi Ngay',
+      btn_join_room: 'Vào Phòng',
+      btn_leaderboard: 'Bảng Xếp Hạng',
       input_room_code: 'Nhập mã 4 ký tự...',
-      room_code_placeholder: 'MÃ PHÒNG (VD: ABCD)',
-      active_rooms_title: 'PHÒNG ĐANG MỞ',
-      no_active_rooms: 'Chưa có phòng nào đang mở. Hãy tạo phòng mới ngay!',
+      room_code_placeholder: 'NHẬP MÃ PHÒNG',
+      active_rooms_title: 'Phòng Đang Hoạt Động',
+      online_players_count: '128 Người Online',
+      no_active_rooms: 'Chưa có phòng nào chờ. Hãy bấm "Tạo Phòng Chơi Ngay" ở trên!',
+      room_code_prefix: 'Mã:',
+      host_prefix: 'Chủ phòng:',
+      btn_join_quick: 'Tham gia',
+      
+      // Filter Tabs
+      tab_all: 'Tất Cả Trò Chơi (5)',
+      tab_action: 'Bắn Súng & Hành Động',
+      tab_racing: 'Đua Xe & Thể Thao',
+      tab_board: 'Trí Tuệ 2 Người',
       
       // Games
-      game_tank: 'Chiến Xa 2P',
-      game_tank_desc: 'Bắn xe tăng cổ điển 1v1 phá gạch',
-      game_starfighter: 'Phi Thuyền Vũ Trụ',
-      game_starfighter_desc: 'Bắn súng không gian đối kháng',
-      game_caro: 'Cờ Caro 15x15',
-      game_caro_desc: 'Đấu trí 5 quân chặn 2 đầu',
+      game_tank: 'Xe Tăng Đại Chiến',
+      game_tank_desc: 'Đấu tăng chiến thuật phá gạch, né đạn và thu thập vật phẩm tăng sức mạnh.',
+      game_starfighter: 'Bắn Tàu Bay Đôi',
+      game_starfighter_desc: 'Cùng đồng đội bắn hạ hạm đội ngoài hành tinh hoặc so tài điểm số trực tiếp.',
+      game_caro: 'Cờ Caro Siêu Tốc',
+      game_caro_desc: 'Đấu trí 5 quân chặn 2 đầu trên bàn cờ 15x15 siêu mượt.',
       game_racer: 'Đua Xe Tốc Độ',
-      game_racer_desc: 'Tránh chướng ngại vật & tăng tốc',
-      game_pong: 'Bóng Bàn Retro',
-      game_pong_desc: 'Đỡ bóng tính điểm kinh điển',
+      game_racer_desc: 'Lách qua chướng ngại vật, ăn tăng tốc Nitro và cán đích trước đối thủ.',
+      game_pong: 'Bóng Bàn Huyền Thoại',
+      game_pong_desc: 'Phản xạ cực hạn với bóng tăng tốc dần sau mỗi cú đánh trả.',
+      players_2p_online: '2 Người Online / Chung Máy',
+      players_2p_vs: '2 Người Đối Kháng',
+      players_2p_speed: '2 Người Đua Tốc Độ',
+      players_2p_reflex: '2 Người Phản Xạ',
+      players_2p_brain: '2 Người Đấu Trí',
       
       // Status & Actions
       status_waiting: 'Đang chờ đối thủ...',
@@ -61,10 +77,23 @@
       mode_pvp_local: '2 Người (Chung máy)',
       mode_pvp_online: 'Đấu Online (P1 vs P2)',
       mode_bot: 'Luyện tập với BOT AI',
-      btn_play_now: 'CHƠI NGAY',
-      btn_leave_room: 'RỜI PHÒNG',
+      btn_play_now: 'Chơi Ngay',
+      btn_leave_room: 'Rời Phòng',
       btn_ready: 'SẴN SÀNG',
       btn_rematch: 'ĐẤU LẠI',
+      
+      // Game Room View
+      room_code_label: 'Mã Phòng:',
+      room_sync_ready: 'Đã sẵn sàng đồng bộ',
+      selected_game_label: 'Trò chơi đã chọn',
+      p1_title: 'NGƯỜI CHƠI 1 (P1)',
+      p2_title: 'NGƯỜI CHƠI 2 (P2)',
+      p1_controls: 'Điều khiển: W A S D + SPACE',
+      p2_controls: 'Điều khiển: Mũi Tên + ENTER',
+      p1_ready: 'ĐÃ SẴN SÀNG',
+      p2_ready: 'SẴN SÀNG CHIẾN ĐẤU',
+      btn_start_match: 'BẮT ĐẦU TRẬN ĐẤU NGAY',
+      tip_multitab: 'Mẹo test Online ngay lập tức: Mở thêm 1 tab trình duyệt mới với trang này và nhập mã phòng để 2 người điều khiển độc lập!',
       
       // Game HUD & In-game
       round: 'HIỆP',
@@ -94,27 +123,43 @@
 
       // Hero & Lobby
       hero_title: 'RETRO 8-BIT ONLINE DUO ARENA',
-      hero_badge: 'LOW-LATENCY REALTIME ENGINE',
-      hero_desc: 'Smooth real-time arcade battles across PC and Mobile. Zero install, play instantly in browser!',
-      btn_create_room: 'CREATE ROOM',
-      btn_join_room: 'JOIN ROOM',
-      btn_leaderboard: 'LEADERBOARD',
+      hero_title_html: 'CHALLENGE YOUR FRIENDS IN <span class="text-transparent bg-clip-text bg-gradient-to-r from-arcade-cyan via-arcade-yellow to-arcade-pink">8-BIT ARCADE</span>',
+      hero_badge: 'Online 2-Player & Split-Keyboard Arena',
+      hero_desc: 'Create a private room in 1 second, share the 4-char code with friends or open 2 browser tabs for seamless real-time multiplayer across PC and mobile.',
+      btn_create_room: 'Create Room Now',
+      btn_join_room: 'Join Room',
+      btn_leaderboard: 'Leaderboard',
       input_room_code: 'Enter 4-char code...',
-      room_code_placeholder: 'ROOM CODE (E.G. ABCD)',
-      active_rooms_title: 'OPEN ROOMS',
-      no_active_rooms: 'No open rooms yet. Create a new room now!',
+      room_code_placeholder: 'ENTER ROOM CODE',
+      active_rooms_title: 'Open Rooms',
+      online_players_count: '128 Players Online',
+      no_active_rooms: 'No open rooms yet. Click "Create Room Now" above to start!',
+      room_code_prefix: 'Code:',
+      host_prefix: 'Host:',
+      btn_join_quick: 'Join',
+      
+      // Filter Tabs
+      tab_all: 'All Games (5)',
+      tab_action: 'Action & Shooter',
+      tab_racing: 'Racing & Sports',
+      tab_board: '2-Player Board & Strategy',
       
       // Games
-      game_tank: 'Tank Battle 2P',
-      game_tank_desc: 'Classic 1v1 brick-shattering tank duel',
+      game_tank: 'Battle City 2P',
+      game_tank_desc: 'Tactical brick-shattering tank duel, bullet dodging and power-up collection.',
       game_starfighter: 'StarFighter Duo',
-      game_starfighter_desc: 'Retro sci-fi space shooter',
+      game_starfighter_desc: 'Co-op retro space shooter: blast alien fleets or compete for highest score.',
       game_caro: 'Caro / Gomoku 15x15',
-      game_caro_desc: 'Tactical 5-in-a-row brain game',
+      game_caro_desc: 'Classic 5-in-a-row brain game with smooth responsive 15x15 board.',
       game_racer: 'Speed Racer 8-Bit',
-      game_racer_desc: 'Dodge obstacles & race to glory',
-      game_pong: 'Classic Retro Pong',
-      game_pong_desc: 'Timeless paddle ball rally',
+      game_racer_desc: 'Dodge obstacles, grab Nitro speed boosters and cross finish line first.',
+      game_pong: 'Cyber Pong 2P',
+      game_pong_desc: 'Ultimate reaction rally with speeding neon ball and paddle mechanics.',
+      players_2p_online: '2P Online / Shared PC',
+      players_2p_vs: '2P Versus Battle',
+      players_2p_speed: '2P Speed Race',
+      players_2p_reflex: '2P Reflex Rally',
+      players_2p_brain: '2P Strategy Duel',
       
       // Status & Actions
       status_waiting: 'Waiting for opponent...',
@@ -122,10 +167,23 @@
       mode_pvp_local: '2 Players (Same Screen)',
       mode_pvp_online: 'Online Battle (P1 vs P2)',
       mode_bot: 'Solo Practice with AI BOT',
-      btn_play_now: 'PLAY NOW',
-      btn_leave_room: 'LEAVE ROOM',
+      btn_play_now: 'Play Now',
+      btn_leave_room: 'Leave Room',
       btn_ready: 'READY',
       btn_rematch: 'REMATCH',
+      
+      // Game Room View
+      room_code_label: 'Room Code:',
+      room_sync_ready: 'Sync Ready',
+      selected_game_label: 'Selected Game',
+      p1_title: 'PLAYER 1 (P1)',
+      p2_title: 'PLAYER 2 (P2)',
+      p1_controls: 'Controls: W A S D + SPACE',
+      p2_controls: 'Controls: Arrow Keys + ENTER',
+      p1_ready: 'READY',
+      p2_ready: 'READY TO FIGHT',
+      btn_start_match: 'START MATCH NOW',
+      tip_multitab: 'Quick online test tip: Open a new browser tab with this page and enter the room code to play as 2 separate players!',
       
       // Game HUD & In-game
       round: 'ROUND',
@@ -155,27 +213,43 @@
 
       // Hero & Lobby
       hero_title: '复古 8-BIT 在线双人对决街机',
-      hero_badge: '低延迟超强同步引擎',
-      hero_desc: '支持手机与电脑跨端即时对战，无需下载任何应用，点击即可秒开开战！',
-      btn_create_room: '创建房间',
+      hero_title_html: '在复古像素世界中 <span class="text-transparent bg-clip-text bg-gradient-to-r from-arcade-cyan via-arcade-yellow to-arcade-pink">挑战你的好友</span>',
+      hero_badge: '支持跨端网络联机与双人同屏对战',
+      hero_desc: '1秒一键创建专属房间，将4位房间代码发送给好友，或新开浏览器标签页，跨越电脑与手机流畅即时对决！',
+      btn_create_room: '立即创建房间',
       btn_join_room: '加入房间',
       btn_leaderboard: '排行榜',
       input_room_code: '输入4位房间号...',
-      room_code_placeholder: '房间代码 (如: ABCD)',
+      room_code_placeholder: '输入房间代码',
       active_rooms_title: '开放房间列表',
-      no_active_rooms: '当前暂无开放房间，快去创建一个吧！',
+      online_players_count: '128 人在线',
+      no_active_rooms: '当前暂无开放房间，点击上方“立即创建房间”开战吧！',
+      room_code_prefix: '房间号:',
+      host_prefix: '房主:',
+      btn_join_quick: '加入',
+      
+      // Filter Tabs
+      tab_all: '全部游戏 (5)',
+      tab_action: '射击与动作',
+      tab_racing: '赛车与竞技',
+      tab_board: '双人棋盘策略',
       
       // Games
-      game_tank: '经典坦克 2P',
-      game_tank_desc: '经典 1v1 破砖对轰坦克战',
-      game_starfighter: '星际战机对决',
-      game_starfighter_desc: '复古太空科幻弹幕射击',
-      game_caro: '五子棋 15x15',
-      game_caro_desc: '策略博弈，五子连珠决胜',
+      game_tank: '坦克大战 2P',
+      game_tank_desc: '策略破砖对轰，闪避子弹并夺取强化道具。',
+      game_starfighter: '双人星际战机',
+      game_starfighter_desc: '太空弹幕协同射击：消灭敌军战舰或同屏竞逐高分。',
+      game_caro: '五子棋极速战',
+      game_caro_desc: '15x15 棋盘策略连珠，五子连成一线即可大获全胜。',
       game_racer: '极速赛车 8-Bit',
-      game_racer_desc: '极限躲避障碍，急速冲刺',
+      game_racer_desc: '极限躲避障碍，拾取氮气加速道具冲过终点线。',
       game_pong: '复古弹球 Pong',
-      game_pong_desc: '经典双人弹球反弹对战',
+      game_pong_desc: '经典极速反弹对决，球速随击球次数飙升。',
+      players_2p_online: '双人在线 / 同屏对战',
+      players_2p_vs: '双人对决',
+      players_2p_speed: '双人竞速',
+      players_2p_reflex: '反应对决',
+      players_2p_brain: '策略博弈',
       
       // Status & Actions
       status_waiting: '等待对手加入...',
@@ -187,6 +261,19 @@
       btn_leave_room: '离开房间',
       btn_ready: '准备就绪',
       btn_rematch: '再来一局',
+      
+      // Game Room View
+      room_code_label: '房间号:',
+      room_sync_ready: '联机同步就绪',
+      selected_game_label: '当前选定游戏',
+      p1_title: '玩家 1 (P1 - 房主)',
+      p2_title: '玩家 2 (P2)',
+      p1_controls: '操作按键: W A S D + 空格键',
+      p2_controls: '操作按键: 方向键 + 回车键',
+      p1_ready: '已准备就绪',
+      p2_ready: '随时准备开战',
+      btn_start_match: '立即开始对决',
+      tip_multitab: '联机测试提示：在浏览器新建一个标签页打开本页面，输入房间号即可作为2名独立玩家对战！',
       
       // Game HUD & In-game
       round: '回合',
@@ -279,6 +366,15 @@
         const key = el.getAttribute('data-i18n');
         if (key) {
           el.textContent = this.t(key, el.textContent);
+        }
+      });
+
+      // 1b. Rich HTML elements: data-i18n-html="key"
+      const htmlEls = root.querySelectorAll('[data-i18n-html]');
+      htmlEls.forEach(el => {
+        const key = el.getAttribute('data-i18n-html');
+        if (key) {
+          el.innerHTML = this.t(key, el.innerHTML);
         }
       });
 

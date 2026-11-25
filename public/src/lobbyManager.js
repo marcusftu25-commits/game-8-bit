@@ -141,32 +141,47 @@
 
     const rooms = await getPublicRooms(5);
 
+    const emptyMsg = (typeof window !== 'undefined' && window.i18n)
+      ? window.i18n.t('no_active_rooms')
+      : 'Chưa có phòng nào chờ. Hãy bấm "Tạo Phòng Chơi Ngay" ở trên!';
+
     if (rooms.length === 0) {
       container.innerHTML = `
-        <div class="text-xs text-slate-400 py-3 text-center italic">
-          Chưa có phòng nào chờ. Hãy bấm "Tạo Phòng Chơi Ngay" ở trên!
+        <div class="text-xs text-slate-400 py-3 text-center italic" data-i18n="no_active_rooms">
+          ${emptyMsg}
         </div>
       `;
       return;
     }
+
+    const codeLabel = (typeof window !== 'undefined' && window.i18n) ? window.i18n.t('room_code_prefix', 'Mã:') : 'Mã:';
+    const hostLabel = (typeof window !== 'undefined' && window.i18n) ? window.i18n.t('host_prefix', 'Chủ phòng:') : 'Chủ phòng:';
+    const joinLabel = (typeof window !== 'undefined' && window.i18n) ? window.i18n.t('btn_join_quick', 'Tham gia') : 'Tham gia';
 
     container.innerHTML = rooms.map(r => `
       <div class="flex items-center justify-between p-2.5 rounded-lg bg-arcade-surface border border-arcade-border/80 hover:border-arcade-cyan transition">
         <div>
           <div class="text-xs font-bold text-white flex items-center gap-1.5">
             <span>${r.hostAvatar || '👾'}</span>
-            <span>Mã: <strong class="font-mono text-arcade-cyan">${r.code}</strong></span>
+            <span>${codeLabel} <strong class="font-mono text-arcade-cyan">${r.code}</strong></span>
           </div>
           <div class="text-[11px] text-slate-400">
-            Chủ phòng: <span class="text-arcade-yellow">${r.hostName}</span>
+            ${hostLabel} <span class="text-arcade-yellow">${r.hostName}</span>
           </div>
         </div>
         <button onclick="window.quickJoinRoom('${r.code}', '${r.gameId}')"
           class="px-3 py-1.5 rounded bg-arcade-cyan/20 text-arcade-cyan hover:bg-arcade-cyan hover:text-arcade-bg text-xs font-bold transition">
-          Tham gia
+          ${joinLabel}
         </button>
       </div>
     `).join('');
+  }
+
+  // Tự động lắng nghe sự kiện đổi ngôn ngữ để render lại danh sách phòng
+  if (typeof window !== 'undefined' && window.i18n) {
+    window.i18n.onLanguageChange(() => {
+      renderPublicRoomsList();
+    });
   }
 
   return {
