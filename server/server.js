@@ -9,8 +9,15 @@
 const http = require('http');
 const url = require('url');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { roomManager } = require('./roomManager');
+const { attachSocketHub } = require('./socketHub');
+const { createDatabase } = require('./database');
+const { createMatchService } = require('./matchService');
+
+const database = createDatabase();
+const matchService = createMatchService(database);
 
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const ROOT_DIR = path.resolve(__dirname, '..');
@@ -59,6 +66,11 @@ function parseJsonBody(req) {
 }
 
 const server = http.createServer(async (req, res) => {
+  // Nhuong hoan toan duong dan /socket.io/ cho Socket.io Engine xu ly
+  if (req.url && req.url.startsWith('/socket.io/')) {
+    return;
+  }
+
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = parsedUrl.pathname;
   const method = req.method.toUpperCase();
@@ -182,6 +194,53 @@ const server = http.createServer(async (req, res) => {
     }
 
     // =========================================================================
+    // PHASE 5 (MVP 5): LEADERBOARD & MATCH HISTORY REST API ENDPOINTS
+    // =========================================================================
+
+    // 7. GET /api/leaderboard?limit=10 - Top cao thu theo totalScore DESC
+    if (pathname === '/api/leaderboard' && method === 'GET') {
+      const limit = Math.min(Math.max(parseInt(parsedUrl.searchParams.get('limit'), 10) || 10, 1), 50);
+      const leaderboard = matchService.getLeaderboard(limit);
+      return sendJson(res, 200, {
+        success: true,
+        count: leaderboard.length,
+        leaderboard
+      });
+    }
+
+    // 8. POST /api/matches/finish - Luu ket qua tran dau va cong diem thuong (+150/+30/+60)
+    if (pathname === '/api/matches/finish' && method === 'POST') {
+      const body = await parseJsonBody(req);
+      if (!body || !body.p1 || !body.p1.id || !body.p1.name) {
+        return sendJson(res, 400, {
+          success: false,
+          message: 'Yêu cầu thông tin người chơi P1 ({ id, name }).'
+        });
+      }
+      const result = matchService.finishMatch(body);
+      return sendJson(res, 201, result);
+    }
+
+    // 9. GET /api/matches/recent?limit=10 - Lich su cac tran gan nhat
+    if (pathname === '/api/matches/recent' && method === 'GET') {
+      const limit = Math.min(Math.max(parseInt(parsedUrl.searchParams.get('limit'), 10) || 10, 1), 50);
+      const matches = matchService.getRecentMatches(limit);
+      return sendJson(res, 200, {
+        success: true,
+        count: matches.length,
+        matches
+      });
+    }
+
+    // 10. GET /api/players/:id - Thong ke diem tich luy & Level nguoi choi
+    const matchPlayer = pathname.match(/^\/api\/players\/([^/]+)$/);
+    if (matchPlayer && method === 'GET') {
+      const playerId = decodeURIComponent(matchPlayer[1]);
+      const player = matchService.getPlayerStats(playerId);
+      return sendJson(res, 200, { success: true, player });
+    }
+
+    // =========================================================================
     // STATIC FILE SERVER
     // =========================================================================
     let filePath = pathname === '/' ? '/8bit_arcade_duo.html' : pathname;
@@ -218,6 +277,18 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// MatchService hook (gan mac dinh tu Giai doan 5)
+let activeMatchService = matchService;
+function setMatchService(service) {
+  activeMatchService = service;
+}
+
+// Gan Socket.io Hub (Phase 3 & 4) len chinh HTTP Server nay
+const socketHub = attachSocketHub(server, {
+  roomManager,
+  getMatchService: () => activeMatchService
+});
+
 // Chạy dọn phòng quá hạn mỗi 5 phút (unref để không block event loop khi test)
 const cleanupTimer = setInterval(() => {
   const cleaned = roomManager.cleanupExpiredRooms();
@@ -227,18 +298,40 @@ const cleanupTimer = setInterval(() => {
 }, 300000);
 if (cleanupTimer.unref) cleanupTimer.unref();
 
+function getLanIp() {
+  const ifaces = os.networkInterfaces();
+  for (const list of Object.values(ifaces)) {
+    for (const info of list || []) {
+      if (info.family === 'IPv4' && !info.internal) return info.address;
+    }
+  }
+  return null;
+}
+
 function startServer(port = PORT) {
   return new Promise((resolve) => {
     server.listen(port, () => {
-      console.log(`🕹️ 8-Bit Arcade Server đang chạy tại http://localhost:${port}`);
+      const lanIp = getLanIp();
+      console.log(`🕹️ 8-Bit Arcade Duo Server (HTTP + Socket.io + SQLite) đã sẵn sàng:`);
+      console.log(`   - Local (PC):      http://localhost:${port}`);
+      if (lanIp) {
+        console.log(`   - Network (Phone): http://${lanIp}:${port}`);
+      }
       resolve(server);
     });
   });
 }
 
-function stopServer() {
+async function stopServer() {
+  if (socketHub && typeof socketHub.close === 'function') {
+    await socketHub.close();
+  }
+  if (database && typeof database.close === 'function') {
+    database.close();
+  }
   return new Promise((resolve) => {
-    server.close(resolve);
+    if (!server.listening) return resolve();
+    server.close(() => resolve());
   });
 }
 
@@ -249,6 +342,10 @@ if (require.main === module) {
 
 module.exports = {
   server,
+  socketHub,
+  database,
+  matchService,
+  setMatchService,
   startServer,
   stopServer
 };

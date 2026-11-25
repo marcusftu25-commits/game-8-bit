@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# arcade sqlite runtime db files
+/server/data/*.db
+/server/data/*.db-wal
+/server/data/*.db-shm
+
+# python cache
+__pycache__/
+*.pyc

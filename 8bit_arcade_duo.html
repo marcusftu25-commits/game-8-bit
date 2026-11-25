@@ -16,9 +16,16 @@
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
-  <!-- MVP 1 Modules: Guest Auth & Lobby Manager -->
+  <!-- Socket.io Client (tu dong phuc vu boi Backend Server; im lang bo qua neu chay offline) -->
+  <script src="/socket.io/socket.io.js" onerror="window.__socketOffline=true"></script>
+
+  <!-- MVP 1, 2, 3, 4, 5 Modules -->
   <script src="src/guestAuth.js"></script>
   <script src="src/lobbyManager.js"></script>
+  <script src="src/inputController.js"></script>
+  <script src="src/gameEngine.js"></script>
+  <script src="src/networkSync.js"></script>
+  <script src="src/leaderboardUI.js"></script>
 
   <script>
     tailwind.config = {
@@ -199,9 +206,9 @@
 
       <!-- Center Status Pill (Active Room Indicator) -->
       <div id="header-room-badge" class="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-arcade-surface border border-arcade-border text-xs">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+        <span id="server-status-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
         <span class="text-slate-300">Máy chủ Việt Nam:</span>
-        <span class="font-mono font-bold text-arcade-cyan">ONLINE (24ms)</span>
+        <span id="server-ping-display" class="font-mono font-bold text-arcade-cyan">ONLINE (24ms)</span>
       </div>
 
       <!-- Right Controls -->
@@ -223,7 +230,7 @@
           <span id="player-avatar-display" class="text-lg leading-none">👾</span>
           <div class="text-left">
             <div id="player-name-display" class="text-xs font-bold text-white max-w-[90px] truncate">Player_VN</div>
-            <div class="text-[10px] font-mono text-arcade-yellow">LV.12 • 1,450 Đ</div>
+            <div id="player-stats-display" class="text-[10px] font-mono text-arcade-yellow tabular-nums">LV.1 • 0 Đ</div>
           </div>
         </button>
       </div>
@@ -496,7 +503,7 @@
           <span id="hud-game-title" class="text-[11px] font-bold uppercase tracking-wider text-slate-400">BẮN TÀU BAY ĐÔI</span>
           <div class="flex items-center gap-2 mt-0.5">
             <span id="hud-timer" class="font-mono font-bold text-lg sm:text-xl text-arcade-yellow tabular-nums">02:00</span>
-            <button onclick="togglePauseGame()" class="p-1.5 rounded-lg bg-arcade-bg border border-arcade-border hover:border-white text-slate-300">
+            <button id="btn-pause" onclick="togglePauseGame()" class="min-w-[44px] min-h-[44px] sm:min-w-[34px] sm:min-h-[34px] flex items-center justify-center p-1.5 rounded-lg bg-arcade-bg border border-arcade-border hover:border-white text-slate-300">
               <i data-lucide="pause" class="w-4 h-4"></i>
             </button>
           </div>
@@ -528,6 +535,16 @@
         <!-- Floating Emotes Layer -->
         <div id="emote-overlay" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
 
+        <!-- Disconnect Grace Period Overlay (15s Reconnect) -->
+        <div id="disconnect-overlay" class="hidden absolute inset-0 bg-arcade-bg/85 backdrop-blur-sm flex flex-col items-center justify-center gap-3 z-25 p-6 text-center">
+          <div class="text-4xl animate-pulse">📡</div>
+          <h3 class="font-display-vi font-bold text-xl sm:text-2xl text-arcade-pink">ĐỐI THỦ MẤT KẾT NỐI</h3>
+          <p class="text-xs sm:text-sm text-slate-300 max-w-sm">
+            Đang giữ phòng chờ đối thủ kết nối lại trong
+            <span id="disconnect-countdown" class="font-mono font-bold text-arcade-yellow text-lg">15</span> giây...
+          </p>
+        </div>
+
         <!-- Pause Overlay Modal -->
         <div id="pause-overlay" class="hidden absolute inset-0 bg-arcade-bg/85 backdrop-blur-sm flex flex-col items-center justify-center gap-4 z-20 p-4">
           <h3 class="font-display-vi font-bold text-2xl sm:text-3xl text-arcade-yellow">TẠM DỪNG TRẬN ĐẤU</h3>
@@ -546,6 +563,7 @@
           <div class="text-5xl animate-bounce">🏆</div>
           <h3 id="winner-title" class="font-display-vi font-bold text-2xl sm:text-4xl text-arcade-yellow">NGƯỜI CHƠI 1 CHIẾN THẮNG!</h3>
           <p id="winner-subtitle" class="text-sm text-slate-300 max-w-md">Trận đấu kịch tính với tỷ số áp đảo!</p>
+          <div id="gameover-reward-badge" class="hidden px-3 py-1 rounded-full bg-arcade-cyan/15 border border-arcade-cyan/40 text-arcade-cyan font-mono text-xs font-bold"></div>
           
           <div class="grid grid-cols-2 gap-4 w-full max-w-sm bg-arcade-surface border border-arcade-border rounded-xl p-4 my-1">
             <div>
@@ -570,22 +588,22 @@
       </div>
 
       <!-- Quick Emote Reactions & Desktop Key Guide -->
-      <div class="flex flex-wrap items-center justify-between gap-2 bg-arcade-surface/90 border border-arcade-border rounded-xl px-4 py-2">
+      <div class="flex flex-wrap items-center justify-between gap-2 bg-arcade-surface/90 border border-arcade-border rounded-xl px-3 sm:px-4 py-2">
         <div class="flex items-center gap-1.5">
           <span class="text-xs text-slate-400 mr-1 hidden sm:inline">Biểu cảm:</span>
-          <button onclick="sendEmote('🔥')" class="w-8 h-8 rounded-lg bg-arcade-bg hover:bg-arcade-border text-base transition active:scale-90">🔥</button>
-          <button onclick="sendEmote('😂')" class="w-8 h-8 rounded-lg bg-arcade-bg hover:bg-arcade-border text-base transition active:scale-90">😂</button>
-          <button onclick="sendEmote('GG!')" class="px-2.5 h-8 rounded-lg bg-arcade-bg hover:bg-arcade-border text-xs font-bold text-arcade-cyan transition active:scale-90">GG!</button>
-          <button onclick="sendEmote('😱')" class="w-8 h-8 rounded-lg bg-arcade-bg hover:bg-arcade-border text-base transition active:scale-90">😱</button>
-          <button onclick="sendEmote('👑')" class="w-8 h-8 rounded-lg bg-arcade-bg hover:bg-arcade-border text-base transition active:scale-90">👑</button>
+          <button onclick="sendEmote('🔥')" class="emote-btn min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] flex items-center justify-center rounded-lg bg-arcade-bg hover:bg-arcade-border text-base transition active:scale-90">🔥</button>
+          <button onclick="sendEmote('😂')" class="emote-btn min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] flex items-center justify-center rounded-lg bg-arcade-bg hover:bg-arcade-border text-base transition active:scale-90">😂</button>
+          <button onclick="sendEmote('GG!')" class="emote-btn min-w-[44px] min-h-[44px] sm:min-w-[44px] sm:min-h-[36px] px-2.5 flex items-center justify-center rounded-lg bg-arcade-bg hover:bg-arcade-border text-xs font-bold text-arcade-cyan transition active:scale-90">GG!</button>
+          <button onclick="sendEmote('😱')" class="emote-btn min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] flex items-center justify-center rounded-lg bg-arcade-bg hover:bg-arcade-border text-base transition active:scale-90">😱</button>
+          <button onclick="sendEmote('👑')" class="emote-btn min-w-[44px] min-h-[44px] sm:min-w-[36px] sm:min-h-[36px] flex items-center justify-center rounded-lg bg-arcade-bg hover:bg-arcade-border text-base transition active:scale-90">👑</button>
         </div>
 
         <div class="hidden md:flex items-center gap-4 text-xs text-slate-400">
-          <span><strong class="text-arcade-cyan">P1:</strong> WASD di chuyển • SPACE bắn</span>
+          <span><strong class="text-arcade-cyan">P1:</strong> WASD di chuyển • SPACE bắn • SHIFT Nitro</span>
           <span><strong class="text-arcade-pink">P2:</strong> Mũi tên di chuyển • ENTER bắn</span>
         </div>
 
-        <button onclick="exitToLobby()" class="text-xs font-semibold text-rose-400 hover:text-rose-300 flex items-center gap-1">
+        <button id="btn-exit-match" onclick="exitToLobby()" class="min-h-[44px] sm:min-h-0 px-2 text-xs font-semibold text-rose-400 hover:text-rose-300 flex items-center gap-1">
           <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Thoát trận
         </button>
       </div>
@@ -593,32 +611,32 @@
       <!-- =====================================================
            MOBILE RESPONSIVE VIRTUAL GAMEPAD (TOUCH CONTROLS)
       ====================================================== -->
-      <div id="mobile-controls" class="md:hidden grid grid-cols-2 gap-4 pt-1 pb-4 select-none">
+      <div id="mobile-controls" class="md:hidden grid grid-cols-2 gap-4 pt-1 pb-4 select-none touch-none">
         
-        <!-- Left D-Pad -->
+        <!-- Left D-Pad (Touch Target >= 44x44px) -->
         <div class="flex items-center justify-start pl-2">
-          <div class="relative w-32 h-32 bg-arcade-surface/80 rounded-full border-2 border-arcade-border flex items-center justify-center shadow-inner">
-            <button data-key="KeyW" class="touch-btn absolute top-1 left-1/2 -translate-x-1/2 w-10 h-10 rounded-lg bg-arcade-bg border border-arcade-border active:bg-arcade-cyan active:text-arcade-bg flex items-center justify-center">
+          <div class="relative w-36 h-36 bg-arcade-surface/80 rounded-full border-2 border-arcade-border flex items-center justify-center shadow-inner touch-none">
+            <button data-key="KeyW" class="touch-btn absolute top-1 left-1/2 -translate-x-1/2 w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg bg-arcade-bg border border-arcade-border active:bg-arcade-cyan active:text-arcade-bg flex items-center justify-center">
               <i data-lucide="chevron-up" class="w-6 h-6"></i>
             </button>
-            <button data-key="KeyS" class="touch-btn absolute bottom-1 left-1/2 -translate-x-1/2 w-10 h-10 rounded-lg bg-arcade-bg border border-arcade-border active:bg-arcade-cyan active:text-arcade-bg flex items-center justify-center">
+            <button data-key="KeyS" class="touch-btn absolute bottom-1 left-1/2 -translate-x-1/2 w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg bg-arcade-bg border border-arcade-border active:bg-arcade-cyan active:text-arcade-bg flex items-center justify-center">
               <i data-lucide="chevron-down" class="w-6 h-6"></i>
             </button>
-            <button data-key="KeyA" class="touch-btn absolute left-1 top-1/2 -translate-y-1/2 w-10 h-10 rounded-lg bg-arcade-bg border border-arcade-border active:bg-arcade-cyan active:text-arcade-bg flex items-center justify-center">
+            <button data-key="KeyA" class="touch-btn absolute left-1 top-1/2 -translate-y-1/2 w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg bg-arcade-bg border border-arcade-border active:bg-arcade-cyan active:text-arcade-bg flex items-center justify-center">
               <i data-lucide="chevron-left" class="w-6 h-6"></i>
             </button>
-            <button data-key="KeyD" class="touch-btn absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 rounded-lg bg-arcade-bg border border-arcade-border active:bg-arcade-cyan active:text-arcade-bg flex items-center justify-center">
+            <button data-key="KeyD" class="touch-btn absolute right-1 top-1/2 -translate-y-1/2 w-11 h-11 min-w-[44px] min-h-[44px] rounded-lg bg-arcade-bg border border-arcade-border active:bg-arcade-cyan active:text-arcade-bg flex items-center justify-center">
               <i data-lucide="chevron-right" class="w-6 h-6"></i>
             </button>
           </div>
         </div>
 
         <!-- Right Action Buttons (A / B) -->
-        <div class="flex items-center justify-end pr-3 gap-3">
-          <button data-key="ShiftLeft" class="touch-btn w-14 h-14 rounded-full bg-arcade-yellow/20 border-2 border-arcade-yellow text-arcade-yellow active:bg-arcade-yellow active:text-arcade-bg font-display-vi font-bold text-lg shadow-lg flex items-center justify-center">
+        <div class="flex items-center justify-end pr-3 gap-3 touch-none">
+          <button data-key="ShiftLeft" class="touch-btn w-14 h-14 min-w-[44px] min-h-[44px] rounded-full bg-arcade-yellow/20 border-2 border-arcade-yellow text-arcade-yellow active:bg-arcade-yellow active:text-arcade-bg font-display-vi font-bold text-lg shadow-lg flex items-center justify-center">
             B
           </button>
-          <button data-key="Space" class="touch-btn w-16 h-16 rounded-full bg-arcade-pink/20 border-2 border-arcade-pink text-arcade-pink active:bg-arcade-pink active:text-white font-display-vi font-bold text-xl shadow-lg flex items-center justify-center -mt-4">
+          <button data-key="Space" class="touch-btn w-16 h-16 min-w-[44px] min-h-[44px] rounded-full bg-arcade-pink/20 border-2 border-arcade-pink text-arcade-pink active:bg-arcade-pink active:text-white font-display-vi font-bold text-xl shadow-lg flex items-center justify-center -mt-4">
             A
           </button>
         </div>
@@ -678,30 +696,9 @@
         </button>
       </div>
 
-      <div class="divide-y divide-arcade-border bg-arcade-bg rounded-xl border border-arcade-border overflow-hidden text-sm">
-        <div class="flex items-center justify-between p-3 bg-arcade-yellow/10">
-          <div class="flex items-center gap-3">
-            <span class="font-mono font-bold text-arcade-yellow">#1</span>
-            <span class="text-xl">🐲</span>
-            <span class="font-bold text-white">HoangNam_Pro</span>
-          </div>
-          <span class="font-mono font-bold text-arcade-cyan">9,850 Đ</span>
-        </div>
-        <div class="flex items-center justify-between p-3">
-          <div class="flex items-center gap-3">
-            <span class="font-mono font-bold text-slate-300">#2</span>
-            <span class="text-xl">🥷</span>
-            <span class="font-bold text-white">LinhChi_Arcade</span>
-          </div>
-          <span class="font-mono font-bold text-arcade-cyan">8,420 Đ</span>
-        </div>
-        <div class="flex items-center justify-between p-3">
-          <div class="flex items-center gap-3">
-            <span class="font-mono font-bold text-amber-600">#3</span>
-            <span class="text-xl">🚀</span>
-            <span class="font-bold text-white">QuocBao_8Bit</span>
-          </div>
-          <span class="font-mono font-bold text-arcade-cyan">7,910 Đ</span>
+      <div id="leaderboard-list" class="divide-y divide-arcade-border bg-arcade-bg rounded-xl border border-arcade-border overflow-hidden text-sm max-h-[60vh] overflow-y-auto">
+        <div class="p-4 text-center text-xs text-slate-400 font-mono">
+          Mở Bảng Xếp Hạng để tải dữ liệu cao thủ trực tiếp...
         </div>
       </div>
     </div>
@@ -811,86 +808,290 @@
     };
 
     /* ---------------------------------------------------------
-       2. MULTIPLAYER SYNC LAYER (BROADCASTCHANNEL + SOCKET READY)
-       Cho phép test 2 người chơi thật giữa 2 Tab trình duyệt,
-       đồng thời sẵn sàng hàm gửi/nhận JSON cho Backend Node.js/Socket.io
+       2. MULTIPLAYER SYNC LAYER (SOCKET.IO V4 + BROADCASTCHANNEL FALLBACK)
+       Giai doan 3 (MVP 2) & Giai doan 4 (Quick Emotes + Synced Screen Shake)
     ---------------------------------------------------------- */
     let syncChannel = null;
+    let disconnectCountdownTimer = null;
+
+    function showDisconnectOverlay(seconds) {
+      const ov = document.getElementById('disconnect-overlay');
+      const cd = document.getElementById('disconnect-countdown');
+      if (!ov || !cd) return;
+      let left = Math.max(1, seconds || 15);
+      cd.textContent = String(left);
+      ov.classList.remove('hidden');
+      AppState.match.paused = true;
+
+      if (disconnectCountdownTimer) clearInterval(disconnectCountdownTimer);
+      disconnectCountdownTimer = setInterval(() => {
+        left = Math.max(0, left - 1);
+        cd.textContent = String(left);
+        if (left <= 0) clearInterval(disconnectCountdownTimer);
+      }, 1000);
+    }
+
+    function hideDisconnectOverlay() {
+      if (disconnectCountdownTimer) clearInterval(disconnectCountdownTimer);
+      const ov = document.getElementById('disconnect-overlay');
+      if (ov) ov.classList.add('hidden');
+      AppState.match.paused = false;
+    }
+
+    function handleBroadcastMessage(msg) {
+      switch (msg.type) {
+        case 'PLAYER_JOINED':
+          document.getElementById('p2-room-name').textContent = msg.name;
+          document.getElementById('p2-room-avatar').textContent = msg.avatar;
+          document.getElementById('room-sync-status').textContent = '2 Người Đã Kết Nối!';
+          showToast(`${msg.name} đã vào phòng!`);
+          playSfx('powerup');
+          if (AppState.player.role === 'P1') {
+            sendNetworkEvent({
+              type: 'ROOM_STATE',
+              gameId: AppState.room.gameId,
+              p1Name: AppState.player.name,
+              p1Avatar: AppState.player.avatar
+            });
+          }
+          break;
+        case 'ROOM_STATE':
+          document.getElementById('p1-room-name').textContent = msg.p1Name;
+          document.getElementById('p1-room-avatar').textContent = msg.p1Avatar;
+          document.getElementById('room-game-select').value = msg.gameId;
+          AppState.room.gameId = msg.gameId;
+          break;
+        case 'CHANGE_GAME':
+          AppState.room.gameId = msg.gameId;
+          document.getElementById('room-game-select').value = msg.gameId;
+          showToast('Chủ phòng đã đổi trò chơi!');
+          break;
+        case 'START_MATCH':
+          if (!AppState.match.running) startMatch(true);
+          break;
+        case 'EMOTE':
+          renderFloatingEmote(msg.emote, msg.role === 'P1' ? 'left' : 'right');
+          break;
+        case 'SCREEN_SHAKE':
+          triggerShake();
+          break;
+        case 'P2_INPUT':
+          if (msg.isDown) keysPressed[msg.mappedKey] = true;
+          else delete keysPressed[msg.mappedKey];
+          break;
+        case 'CARO_MOVE':
+          if (AppState.room.gameId === 'caro' && window.caroState) {
+            handleCaroClick(msg.r, msg.c, true);
+          }
+          break;
+      }
+    }
+
+    if (window.NetworkSync) {
+      window.NetworkSync.init({
+        onConnectionChange: (connected) => {
+          AppState.room.isConnected = connected;
+          const pingEl = document.getElementById('server-ping-display');
+          if (pingEl && !connected) pingEl.textContent = 'OFFLINE (LOCAL)';
+        },
+        onPing: (rtt) => {
+          const pingEl = document.getElementById('server-ping-display');
+          if (pingEl) pingEl.textContent = `ONLINE (${rtt}ms)`;
+        },
+        onRoomState: ({ room }) => {
+          if (!room) return;
+          AppState.room.gameId = room.gameId;
+          AppState.room.mode = room.mode;
+          document.getElementById('room-game-select').value = room.gameId;
+          document.getElementById('room-mode-select').value = room.mode;
+          if (room.p1) {
+            document.getElementById('p1-room-name').textContent = room.p1.name;
+            document.getElementById('p1-room-avatar').textContent = room.p1.avatar;
+          }
+          if (room.p2) {
+            document.getElementById('p2-room-name').textContent = room.p2.name;
+            document.getElementById('p2-room-avatar').textContent = room.p2.avatar;
+            document.getElementById('room-sync-status').textContent = '2 Người Đã Kết Nối (Socket.io)!';
+          }
+        },
+        onPlayerJoined: ({ player, room }) => {
+          if (player) showToast(`${player.name} đã vào phòng!`);
+          playSfx('powerup');
+          if (room && room.p2) {
+            document.getElementById('p2-room-name').textContent = room.p2.name;
+            document.getElementById('p2-room-avatar').textContent = room.p2.avatar;
+            document.getElementById('room-sync-status').textContent = '2 Người Đã Kết Nối (Socket.io)!';
+          }
+        },
+        onPlayerLeft: ({ action }) => {
+          if (action === 'DESTROYED') {
+            showToast('Chủ phòng đã rời đi, phòng đã đóng.');
+            exitToLobby();
+          } else {
+            document.getElementById('p2-room-name').textContent = 'Người Chơi 2 / Bạn Bè';
+            document.getElementById('room-sync-status').textContent = 'Đang chờ người chơi 2...';
+            showToast('Đối thủ đã rời phòng!');
+          }
+        },
+        onGameChanged: ({ gameId }) => {
+          AppState.room.gameId = gameId;
+          document.getElementById('room-game-select').value = gameId;
+          showToast('Chủ phòng đã đổi trò chơi!');
+        },
+        onModeChanged: ({ mode }) => {
+          AppState.room.mode = mode;
+          document.getElementById('room-mode-select').value = mode;
+        },
+        onMatchStarted: ({ gameId, mode, matchId }) => {
+          AppState.room.gameId = gameId;
+          AppState.room.mode = mode || AppState.room.mode;
+          AppState.match.matchId = matchId || null;
+          hideDisconnectOverlay();
+          if (!AppState.match.running) startMatch(true);
+        },
+        onClientInput: (msg) => {
+          const targetKey = msg.mappedKey || (window.InputController && window.InputController.MAP_P1_TO_P2[msg.key]) || msg.key;
+          if (!targetKey) return;
+          if (msg.isDown) keysPressed[targetKey] = true;
+          else delete keysPressed[targetKey];
+        },
+        onGameState: (snap) => {
+          if (!snap || AppState.player.role === 'P1') return;
+          if (snap.match) {
+            AppState.match.p1Score = snap.match.p1Score;
+            AppState.match.p2Score = snap.match.p2Score;
+            AppState.match.p1Hp = snap.match.p1Hp;
+            AppState.match.p2Hp = snap.match.p2Hp;
+            AppState.match.timeLeft = snap.match.timeLeft;
+            const mins = String(Math.floor(AppState.match.timeLeft / 60)).padStart(2, '0');
+            const secs = String(AppState.match.timeLeft % 60).padStart(2, '0');
+            document.getElementById('hud-timer').textContent = `${mins}:${secs}`;
+            updateHudUI();
+          }
+          if (window.currentGameEngine && window.currentGameState && typeof window.currentGameEngine.applySnapshot === 'function') {
+            window.currentGameEngine.applySnapshot(window.currentGameState, snap);
+          }
+        },
+        onCaroMoveAccepted: (data) => {
+          if (AppState.room.gameId !== 'caro' || !window.caroState) return;
+          const st = window.caroState;
+          st.locked = false;
+          st.board[data.r][data.c] = data.player;
+          st.lastMove = { r: data.r, c: data.c, player: data.player };
+          st.moveCount++;
+          playSfx('blip');
+
+          if (data.win) {
+            st.finished = true;
+            st.winLine = data.winLine;
+            if (data.player === 1) AppState.match.p1Score += 500;
+            else AppState.match.p2Score += 500;
+            updateHudUI();
+            triggerShake();
+            endMatch(`NGƯỜI CHƠI ${data.player} THẮNG CỜ CARO!`, { skipServerEmit: true, rewards: data.rewards });
+          } else if (data.isDraw) {
+            st.finished = true;
+            endMatch('TRẬN ĐẤU HÒA KỊCH TÍNH!', { skipServerEmit: true, rewards: data.rewards });
+          } else {
+            st.turn = data.nextTurn === 'P1' ? 1 : 2;
+          }
+        },
+        onCaroMoveRejected: (data) => {
+          if (window.caroState) window.caroState.locked = false;
+          if (data && data.reason === 'NOT_YOUR_TURN') {
+            showToast('Chưa đến lượt của bạn!');
+          }
+        },
+        onReceiveEmote: (data) => {
+          if (!data || !data.emote) return;
+          // Tranh hien trung neu chinh minh da hien local truoc do qua fallback
+          if (data.senderId === AppState.player.id) return;
+          renderFloatingEmote(data.emote, data.role === 'P1' ? 'left' : 'right');
+          playSfx('blip');
+        },
+        onScreenShake: (data) => {
+          if (data && data.senderId === AppState.player.id) return;
+          triggerShake();
+        },
+        onPlayerDisconnected: (data) => {
+          showToast(`Đối thủ (${data.role}) mất kết nối! Chờ ${data.gracePeriod}s...`);
+          showDisconnectOverlay(data.gracePeriod || 15);
+        },
+        onPlayerReconnected: (data) => {
+          hideDisconnectOverlay();
+          showToast(`Đối thủ (${data.role}) đã kết nối lại! Tiếp tục chiến đấu!`);
+          playSfx('powerup');
+        },
+        onReconnectSuccess: (data) => {
+          if (!data || !data.room) return;
+          AppState.room.code = data.room.code;
+          AppState.room.gameId = data.room.gameId;
+          AppState.player.role = data.role;
+          hideDisconnectOverlay();
+          showToast('Đã kết nối lại phòng đấu thành công!');
+          if (data.room.status === 'PLAYING' && !AppState.match.running) {
+            startMatch(true);
+            if (data.caroState && window.caroState) {
+              window.caroState.board = data.caroState.board;
+              window.caroState.turn = data.caroState.turn === 'P1' ? 1 : 2;
+              window.caroState.moveCount = data.caroState.moveCount;
+            }
+          }
+        },
+        onMatchForfeited: (data) => {
+          hideDisconnectOverlay();
+          const title = data.winnerRole === 'P1'
+            ? 'NGƯỜI CHƠI 1 THẮNG DO ĐỐI THỦ THOÁT!'
+            : 'NGƯỜI CHƠI 2 THẮNG DO ĐỐI THỦ THOÁT!';
+          endMatch(title, { skipServerEmit: true, rewards: data.rewards });
+        },
+        onMatchFinished: (data) => {
+          if (!AppState.match.running) return;
+          AppState.match.p1Score = data.p1Score;
+          AppState.match.p2Score = data.p2Score;
+          updateHudUI();
+          endMatch(data.title || null, { skipServerEmit: true, rewards: data.rewards });
+        },
+        onBroadcastMessage: handleBroadcastMessage
+      });
+    }
 
     function initNetworkSync(roomCode) {
+      if (window.NetworkSync) {
+        window.NetworkSync.joinRoom(roomCode, AppState.player, AppState.player.role, AppState.room.gameId);
+        return;
+      }
       if (syncChannel) syncChannel.close();
       syncChannel = new BroadcastChannel('arcade_room_' + roomCode);
-
       syncChannel.onmessage = (event) => {
         const msg = event.data;
         if (!msg || msg.senderId === AppState.player.id) return;
-
-        switch (msg.type) {
-          case 'PLAYER_JOINED':
-            document.getElementById('p2-room-name').textContent = msg.name;
-            document.getElementById('p2-room-avatar').textContent = msg.avatar;
-            document.getElementById('room-sync-status').textContent = '2 Người Đã Kết Nối!';
-            showToast(`${msg.name} đã vào phòng!`);
-            playSfx('powerup');
-            // Host gửi lại thông tin phòng cho Guest
-            if (AppState.player.role === 'P1') {
-              sendNetworkEvent({
-                type: 'ROOM_STATE',
-                gameId: AppState.room.gameId,
-                p1Name: AppState.player.name,
-                p1Avatar: AppState.player.avatar
-              });
-            }
-            break;
-
-          case 'ROOM_STATE':
-            document.getElementById('p1-room-name').textContent = msg.p1Name;
-            document.getElementById('p1-room-avatar').textContent = msg.p1Avatar;
-            document.getElementById('room-game-select').value = msg.gameId;
-            AppState.room.gameId = msg.gameId;
-            break;
-
-          case 'CHANGE_GAME':
-            AppState.room.gameId = msg.gameId;
-            document.getElementById('room-game-select').value = msg.gameId;
-            showToast('Chủ phòng đã đổi trò chơi!');
-            break;
-
-          case 'START_MATCH':
-            if (!AppState.match.running) startMatch(true);
-            break;
-
-          case 'EMOTE':
-            renderFloatingEmote(msg.emote, msg.role === 'P1' ? 'left' : 'right');
-            break;
-
-          case 'P2_INPUT':
-            // Đồng bộ phím bấm từ Tab 2 sang Tab 1
-            if (msg.isDown) keysPressed[msg.mappedKey] = true;
-            else delete keysPressed[msg.mappedKey];
-            break;
-
-          case 'CARO_MOVE':
-            if (AppState.room.gameId === 'caro' && window.caroState) {
-              handleCaroClick(msg.r, msg.c, true);
-            }
-            break;
-        }
+        handleBroadcastMessage(msg);
       };
-
-      // TODO: KẾT NỐI BACKEND WEBSOCKET / SOCKET.IO TẠI ĐÂY
-      // const socket = io('https://your-backend-server.com');
-      // socket.emit('join_room', { roomCode, player: AppState.player });
     }
 
     function sendNetworkEvent(payload) {
       payload.senderId = AppState.player.id;
+      if (window.NetworkSync) {
+        if (payload.type === 'CHANGE_GAME') window.NetworkSync.sendChangeGame(payload.gameId);
+        else if (payload.type === 'START_MATCH') window.NetworkSync.sendStartMatch();
+        else if (payload.type === 'EMOTE') window.NetworkSync.sendEmote(payload.emote, payload.role);
+        else if (payload.type === 'P2_INPUT') window.NetworkSync.sendInputEvent(payload);
+        else if (payload.type === 'CARO_MOVE') window.NetworkSync.sendCaroMove(payload.r, payload.c);
+        else if (payload.type === 'SCREEN_SHAKE') window.NetworkSync.sendScreenShake(payload.reason, payload.intensity);
+        else window.NetworkSync.postBroadcast(payload);
+        return;
+      }
       if (syncChannel) {
         syncChannel.postMessage(payload);
       }
-      // TODO: Gửi lên Backend Server nếu dùng WebSocket thật
-      // if (window.socket) window.socket.emit('game_event', payload);
     }
+
+    window.broadcastScreenShake = function (reason) {
+      if (window.NetworkSync && window.NetworkSync.isSocketMultiplayer(AppState.room.mode)) {
+        window.NetworkSync.sendScreenShake(reason, 1);
+      }
+    };
 
     /* ---------------------------------------------------------
        3. WEB AUDIO API - BỘ TỔNG HỢP ÂM THANH 8-BIT KHÔNG CẦN FILE MP3
@@ -1004,6 +1205,12 @@
       });
       document.getElementById('view-' + view).classList.remove('hidden');
       AppState.currentView = view;
+      if (window.InputController) {
+        window.InputController.setGameScrollLock(view === 'game');
+      }
+      if (view !== 'game' && window.inputCtrl) {
+        window.inputCtrl.clearAllKeys();
+      }
     }
 
     async function createNewRoom(gameId = 'starfighter') {
@@ -1080,6 +1287,7 @@
       } else {
         document.getElementById('p2-room-name').textContent = 'Người Chơi 2 / Bạn Bè';
       }
+      if (window.NetworkSync) window.NetworkSync.sendChangeMode(mode);
       playSfx('blip');
     }
 
@@ -1090,19 +1298,51 @@
     }
 
     function leaveRoom() {
+      if (window.NetworkSync) window.NetworkSync.leaveRoom();
       if (syncChannel) syncChannel.close();
+      hideDisconnectOverlay();
       navigateTo('lobby');
+    }
+
+    function saveUiPrefs() {
+      try {
+        localStorage.setItem('arcade_ui_prefs', JSON.stringify({
+          soundEnabled: AppState.soundEnabled,
+          crtEnabled: AppState.crtEnabled
+        }));
+      } catch (e) {}
+    }
+
+    function loadUiPrefs() {
+      try {
+        const raw = localStorage.getItem('arcade_ui_prefs');
+        if (!raw) return;
+        const prefs = JSON.parse(raw);
+        if (typeof prefs.soundEnabled === 'boolean') {
+          AppState.soundEnabled = prefs.soundEnabled;
+          const icon = document.getElementById('icon-sound');
+          if (icon) icon.setAttribute('data-lucide', AppState.soundEnabled ? 'volume-2' : 'volume-x');
+        }
+        if (typeof prefs.crtEnabled === 'boolean') {
+          AppState.crtEnabled = prefs.crtEnabled;
+          const crt = document.getElementById('crt-layer');
+          if (crt) crt.classList.toggle('hidden', !AppState.crtEnabled);
+        }
+        if (window.lucide) lucide.createIcons();
+      } catch (e) {}
     }
 
     function toggleSound() {
       AppState.soundEnabled = !AppState.soundEnabled;
       document.getElementById('icon-sound').setAttribute('data-lucide', AppState.soundEnabled ? 'volume-2' : 'volume-x');
-      lucide.createIcons();
+      if (window.lucide) lucide.createIcons();
+      saveUiPrefs();
     }
 
     function toggleCRT() {
       AppState.crtEnabled = !AppState.crtEnabled;
       document.getElementById('crt-layer').classList.toggle('hidden', !AppState.crtEnabled);
+      saveUiPrefs();
     }
 
     function openProfileModal() {
@@ -1134,8 +1374,53 @@
     }
 
     function toggleLeaderboardModal() {
-      document.getElementById('modal-leaderboard').classList.toggle('hidden');
+      const modal = document.getElementById('modal-leaderboard');
+      const willOpen = modal.classList.contains('hidden');
+      modal.classList.toggle('hidden');
+      if (willOpen && window.LeaderboardUI) {
+        window.LeaderboardUI.renderLeaderboard(AppState.player.id, 10);
+      }
     }
+
+    window.onMatchRewardsReceived = function (result) {
+      if (!result || !result.rewards) return;
+      const rw = result.rewards;
+      const isP1 = AppState.player.role === 'P1';
+      const delta = isP1 ? rw.p1Delta : rw.p2Delta;
+      const total = isP1 ? rw.p1TotalScore : rw.p2TotalScore;
+      const level = isP1 ? rw.p1Level : rw.p2Level;
+
+      const badge = document.getElementById('gameover-reward-badge');
+      if (badge && delta > 0) {
+        badge.textContent = `Điểm thưởng xếp hạng: +${delta} Đ (Tổng: ${Number(total).toLocaleString('en-US')} Đ)`;
+        badge.classList.remove('hidden');
+      }
+      if (window.LeaderboardUI && typeof total === 'number') {
+        window.LeaderboardUI.updateHeaderStats(total, level);
+      }
+    };
+
+    window.recordLocalMatchResult = async function ({ roomCode, gameId, p1Score, p2Score, winnerRole, mode }) {
+      if (!window.LeaderboardUI) return;
+      const p1 = { id: AppState.player.id, name: AppState.player.name, avatar: AppState.player.avatar };
+      const p2 = mode === 'bot'
+        ? { id: 'bot_ai', name: 'Bot AI Siêu Cấp', avatar: '🤖' }
+        : { id: 'u_local_p2', name: document.getElementById('hud-p2-name')?.textContent || 'Người Chơi 2', avatar: '🤖' };
+      const winnerId = winnerRole === 'P1' ? p1.id : (winnerRole === 'P2' ? p2.id : null);
+      const durationSec = Math.max(1, 90 - (AppState.match.timeLeft || 0));
+
+      const res = await window.LeaderboardUI.submitMatchFinish({
+        roomCode,
+        gameId,
+        p1,
+        p2,
+        p1Score,
+        p2Score,
+        winnerId,
+        durationSec
+      });
+      if (res) window.onMatchRewardsReceived(res);
+    };
 
     function showToast(msg) {
       const toast = document.getElementById('toast');
@@ -1145,8 +1430,13 @@
     }
 
     function sendEmote(emoji) {
+      if (window.NetworkSync) {
+        const ok = window.NetworkSync.sendEmote(emoji, AppState.player.role);
+        if (!ok) return;
+      } else {
+        sendNetworkEvent({ type: 'EMOTE', emote: emoji, role: AppState.player.role });
+      }
       renderFloatingEmote(emoji, AppState.player.role === 'P1' ? 'left' : 'right');
-      sendNetworkEvent({ type: 'EMOTE', emote: emoji, role: AppState.player.role });
       playSfx('blip');
     }
 
@@ -1154,6 +1444,7 @@
       const layer = document.getElementById('emote-overlay');
       const el = document.createElement('div');
       el.className = 'emote-popup absolute bottom-12 px-3 py-1 rounded-full bg-arcade-surface/90 border border-arcade-cyan text-xl font-bold shadow-lg';
+      el.dataset.side = side;
       el.style[side] = '15%';
       el.textContent = emoji;
       layer.appendChild(el);
@@ -1161,47 +1452,28 @@
     }
 
     /* ---------------------------------------------------------
-       5. BỘ ĐIỀU KHIỂN PHÍM BẤM & MOBILE TOUCH CONTROLS
+       5. BỘ ĐIỀU KHIỂN PHÍM BẤM & MOBILE TOUCH CONTROLS (PHASE 2)
     ---------------------------------------------------------- */
     const keysPressed = {};
 
-    window.addEventListener('keydown', (e) => {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code) && AppState.currentView === 'game') {
-        e.preventDefault();
-      }
-      keysPressed[e.code] = true;
-
-      // Nếu đang ở Tab 2 (Guest), ánh xạ phím WASD sang phím mũi tên của P2 gửi về Host
-      if (AppState.player.role === 'P2' && AppState.currentView === 'game') {
-        const mapToP2 = { KeyW: 'ArrowUp', KeyS: 'ArrowDown', KeyA: 'ArrowLeft', KeyD: 'ArrowRight', Space: 'Enter' };
-        if (mapToP2[e.code]) {
-          sendNetworkEvent({ type: 'P2_INPUT', mappedKey: mapToP2[e.code], isDown: true });
+    if (window.InputController) {
+      window.inputCtrl = window.InputController.createController({
+        keysPressed,
+        getRole: () => AppState.player.role,
+        getCurrentView: () => AppState.currentView,
+        onP2Input: (payload) => {
+          sendNetworkEvent({
+            type: 'P2_INPUT',
+            key: payload.key,
+            mappedKey: payload.mappedKey,
+            isDown: payload.isDown,
+            seq: payload.seq,
+            timestamp: payload.timestamp
+          });
         }
-      }
-    });
-
-    window.addEventListener('keyup', (e) => {
-      delete keysPressed[e.code];
-      if (AppState.player.role === 'P2' && AppState.currentView === 'game') {
-        const mapToP2 = { KeyW: 'ArrowUp', KeyS: 'ArrowDown', KeyA: 'ArrowLeft', KeyD: 'ArrowRight', Space: 'Enter' };
-        if (mapToP2[e.code]) {
-          sendNetworkEvent({ type: 'P2_INPUT', mappedKey: mapToP2[e.code], isDown: false });
-        }
-      }
-    });
-
-    // Touch D-Pad Events for Mobile
-    document.querySelectorAll('.touch-btn').forEach(btn => {
-      const code = btn.dataset.key;
-      btn.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        keysPressed[code] = true;
-      }, { passive: false });
-      btn.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        delete keysPressed[code];
-      }, { passive: false });
-    });
+      });
+      window.inputCtrl.attach();
+    }
 
     /* ---------------------------------------------------------
        6. GAME ENGINE (HTML5 CANVAS 60FPS CHO CẢ 5 TRÒ CHƠI)
@@ -1217,6 +1489,8 @@
       navigateTo('game');
       document.getElementById('pause-overlay').classList.add('hidden');
       document.getElementById('gameover-overlay').classList.add('hidden');
+      const rwBadge = document.getElementById('gameover-reward-badge');
+      if (rwBadge) rwBadge.classList.add('hidden');
 
       const gameObj = GAMES_CATALOG.find(g => g.id === AppState.room.gameId);
       document.getElementById('hud-game-title').textContent = gameObj.title;
@@ -1273,19 +1547,32 @@
       AppState.match.running = false;
       if (animFrameId) cancelAnimationFrame(animFrameId);
       if (timerInterval) clearInterval(timerInterval);
+      hideDisconnectOverlay();
+      if (window.NetworkSync) window.NetworkSync.leaveRoom();
       navigateTo('lobby');
     }
 
-    function endMatch(customWinnerText = null) {
+    function endMatch(customWinnerText = null, opts = {}) {
       AppState.match.running = false;
       if (animFrameId) cancelAnimationFrame(animFrameId);
       if (timerInterval) clearInterval(timerInterval);
+      hideDisconnectOverlay();
 
       let title = customWinnerText;
+      let winnerRole = null;
       if (!title) {
-        if (AppState.match.p1Score > AppState.match.p2Score) title = 'NGƯỜI CHƠI 1 CHIẾN THẮNG!';
-        else if (AppState.match.p2Score > AppState.match.p1Score) title = 'NGƯỜI CHƠI 2 CHIẾN THẮNG!';
-        else title = 'TRẬN ĐẤU HÒA KỊCH TÍNH!';
+        if (AppState.match.p1Score > AppState.match.p2Score) {
+          title = 'NGƯỜI CHƠI 1 CHIẾN THẮNG!';
+          winnerRole = 'P1';
+        } else if (AppState.match.p2Score > AppState.match.p1Score) {
+          title = 'NGƯỜI CHƠI 2 CHIẾN THẮNG!';
+          winnerRole = 'P2';
+        } else {
+          title = 'TRẬN ĐẤU HÒA KỊCH TÍNH!';
+        }
+      } else {
+        if (title.includes('1')) winnerRole = 'P1';
+        else if (title.includes('2')) winnerRole = 'P2';
       }
 
       document.getElementById('winner-title').textContent = title;
@@ -1293,527 +1580,195 @@
       document.getElementById('final-p2-score').textContent = AppState.match.p2Score;
       document.getElementById('gameover-overlay').classList.remove('hidden');
       playSfx('powerup');
+
+      // Gui ket qua len Server qua Socket (Multiplayer) hoac REST API (Single/Bot)
+      if (!opts.skipServerEmit && window.NetworkSync && window.NetworkSync.isSocketMultiplayer(AppState.room.mode)) {
+        if (AppState.player.role === 'P1') {
+          window.NetworkSync.sendMatchEnded({
+            p1Score: AppState.match.p1Score,
+            p2Score: AppState.match.p2Score,
+            winnerRole,
+            title
+          });
+        }
+      } else if (!opts.skipServerEmit && typeof window.recordLocalMatchResult === 'function') {
+        window.recordLocalMatchResult({
+          roomCode: AppState.room.code || 'LOCL',
+          gameId: AppState.room.gameId,
+          p1Score: AppState.match.p1Score,
+          p2Score: AppState.match.p2Score,
+          winnerRole,
+          mode: AppState.room.mode
+        });
+      } else if (opts.rewards && typeof window.onMatchRewardsReceived === 'function') {
+        window.onMatchRewardsReceived(opts.rewards);
+      }
     }
 
     /* ---------------------------------------------------------
-       7. LOGIC CHI TIẾT TỪNG TRÒ CHƠI 8-BIT
+       7. LOGIC CHI TIẾT TỪNG TRÒ CHƠI 8-BIT (SỬ DỤNG GameEngine)
     ---------------------------------------------------------- */
+    window.currentGameState = null;
+    window.currentGameEngine = null;
+    let lastSyncPushTs = 0;
+
+    function handleEngineEvents(events) {
+      if (!events || events.length === 0) return;
+      for (const ev of events) {
+        if (ev.type === 'hud') updateHudUI();
+        else if (ev.type === 'sfx') playSfx(ev.sound);
+        else if (ev.type === 'shake') {
+          triggerShake();
+          if (typeof window.broadcastScreenShake === 'function') {
+            window.broadcastScreenShake(ev.reason || 'impact');
+          }
+        } else if (ev.type === 'endMatch') {
+          endMatch(ev.title);
+          return true;
+        }
+      }
+      return false;
+    }
+
     function initSelectedGameEngine(gameId) {
       if (animFrameId) cancelAnimationFrame(animFrameId);
+      canvas.onclick = null;
+      canvas.ontouchstart = null;
 
-      // Stars backdrop
-      const stars = Array.from({ length: 45 }, () => ({
-        x: Math.random() * 800,
-        y: Math.random() * 500,
-        s: Math.random() * 2 + 1,
-        v: Math.random() * 1.5 + 0.5
-      }));
+      const Engine = window.GameEngine && window.GameEngine.ENGINES[gameId];
+      if (!Engine) return;
 
-      if (gameId === 'starfighter') {
-        // GAME 1: BẮN TÀU BAY ĐÔI (2P CO-OP & SCORE DUEL)
-        const p1 = { x: 240, y: 420, w: 36, h: 36, cd: 0, color: '#00F5D4' };
-        const p2 = { x: 520, y: 420, w: 36, h: 36, cd: 0, color: '#FF2A85' };
-        let bullets = [];
-        let enemies = [];
-        let particles = [];
-        let spawnTimer = 0;
+      const state = Engine.createState();
+      window.currentGameState = state;
+      window.currentGameEngine = Engine;
 
-        function loop() {
-          if (!AppState.match.running) return;
-          if (!AppState.match.paused) {
-            // Controls P1 (WASD + Space)
-            if (keysPressed['KeyA'] && p1.x > 20) p1.x -= 5;
-            if (keysPressed['KeyD'] && p1.x < 744) p1.x += 5;
-            if (keysPressed['KeyW'] && p1.y > 50) p1.y -= 5;
-            if (keysPressed['KeyS'] && p1.y < 445) p1.y += 5;
-            if (p1.cd > 0) p1.cd--;
-            if (keysPressed['Space'] && p1.cd === 0) {
-              bullets.push({ x: p1.x + 16, y: p1.y - 8, owner: 1, color: '#00F5D4' });
-              p1.cd = 12;
-              playSfx('laser');
-            }
+      if (gameId === 'caro') {
+        window.caroState = state;
 
-            // Controls P2 (Arrows + Enter OR AI Bot)
-            if (AppState.room.mode === 'bot') {
-              p2.x += Math.sin(Date.now() / 400) * 4;
-              if (p2.cd === 0) {
-                bullets.push({ x: p2.x + 16, y: p2.y - 8, owner: 2, color: '#FF2A85' });
-                p2.cd = 18;
-              }
-              if (p2.cd > 0) p2.cd--;
-            } else {
-              if (keysPressed['ArrowLeft'] && p2.x > 20) p2.x -= 5;
-              if (keysPressed['ArrowRight'] && p2.x < 744) p2.x += 5;
-              if (keysPressed['ArrowUp'] && p2.y > 50) p2.y -= 5;
-              if (keysPressed['ArrowDown'] && p2.y < 445) p2.y += 5;
-              if (p2.cd > 0) p2.cd--;
-              if (keysPressed['Enter'] && p2.cd === 0) {
-                bullets.push({ x: p2.x + 16, y: p2.y - 8, owner: 2, color: '#FF2A85' });
-                p2.cd = 12;
-                playSfx('laser');
-              }
-            }
-
-            // Spawn Enemies
-            spawnTimer++;
-            if (spawnTimer % 42 === 0) {
-              enemies.push({ x: Math.random() * 720 + 20, y: -30, w: 32, h: 32, vy: Math.random() * 2 + 2 });
-            }
-
-            // Update Bullets
-            bullets.forEach(b => b.y -= 9);
-            bullets = bullets.filter(b => b.y > -20);
-
-            // Update Enemies & Collisions
-            enemies.forEach((en, ei) => {
-              en.y += en.vy;
-              bullets.forEach((b, bi) => {
-                if (b.x > en.x && b.x < en.x + en.w && b.y > en.y && b.y < en.y + en.h) {
-                  enemies.splice(ei, 1);
-                  bullets.splice(bi, 1);
-                  if (b.owner === 1) AppState.match.p1Score += 100;
-                  else AppState.match.p2Score += 100;
-                  updateHudUI();
-                  playSfx('explosion');
-                  for (let i = 0; i < 10; i++) {
-                    particles.push({ x: en.x + 16, y: en.y + 16, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, life: 20, color: '#FEE440' });
-                  }
-                }
-              });
-
-              // Hit Players
-              if (Math.abs(en.x - p1.x) < 28 && Math.abs(en.y - p1.y) < 28) {
-                enemies.splice(ei, 1);
-                AppState.match.p1Hp -= 20;
-                updateHudUI();
-                triggerShake();
-                playSfx('explosion');
-                if (AppState.match.p1Hp <= 0) endMatch('NGƯỜI CHƠI 2 CHIẾN THẮNG!');
-              }
-              if (Math.abs(en.x - p2.x) < 28 && Math.abs(en.y - p2.y) < 28) {
-                enemies.splice(ei, 1);
-                AppState.match.p2Hp -= 20;
-                updateHudUI();
-                triggerShake();
-                playSfx('explosion');
-                if (AppState.match.p2Hp <= 0) endMatch('NGƯỜI CHƠI 1 CHIẾN THẮNG!');
-              }
-            });
-            enemies = enemies.filter(en => en.y < 540);
+        let lastTouchTs = 0;
+        const handleBoardPointer = (e, isTouch) => {
+          if (AppState.room.gameId !== 'caro' || !AppState.match.running || AppState.match.paused) return;
+          if (isTouch) {
+            if (e.cancelable) e.preventDefault();
+            lastTouchTs = Date.now();
+          } else if (Date.now() - lastTouchTs < 400) {
+            // Chan synthetic click phat sinh ngay sau touchstart tren mobile
+            return;
           }
 
-          // Render
-          ctx.fillStyle = '#06070E';
-          ctx.fillRect(0, 0, 800, 500);
-          stars.forEach(s => {
-            s.y = (s.y + s.v) % 500;
-            ctx.fillStyle = '#334155';
-            ctx.fillRect(s.x, s.y, s.s, s.s);
-          });
-
-          // Draw Ships (Pixel Style)
-          drawPixelShip(p1.x, p1.y, p1.color, 'P1');
-          drawPixelShip(p2.x, p2.y, p2.color, 'P2');
-
-          bullets.forEach(b => {
-            ctx.fillStyle = b.color;
-            ctx.fillRect(b.x, b.y, 4, 14);
-          });
-
-          enemies.forEach(en => {
-            ctx.fillStyle = '#FEE440';
-            ctx.fillRect(en.x + 4, en.y, 24, 24);
-            ctx.fillStyle = '#EF4444';
-            ctx.fillRect(en.x, en.y + 8, 32, 12);
-          });
-
-          particles.forEach((pt, idx) => {
-            pt.x += pt.vx; pt.y += pt.vy; pt.life--;
-            ctx.fillStyle = pt.color;
-            ctx.fillRect(pt.x, pt.y, 4, 4);
-            if (pt.life <= 0) particles.splice(idx, 1);
-          });
-
-          animFrameId = requestAnimationFrame(loop);
-        }
-        loop();
-      }
-
-      else if (gameId === 'tank') {
-        // GAME 2: XE TĂNG ĐẠI CHIẾN (2P ARENA DUEL)
-        const t1 = { x: 80, y: 230, dir: 'R', cd: 0, color: '#00F5D4' };
-        const t2 = { x: 680, y: 230, dir: 'L', cd: 0, color: '#FF2A85' };
-        let shells = [];
-        let blocks = [
-          { x: 380, y: 80, w: 40, h: 110 },
-          { x: 380, y: 310, w: 40, h: 110 },
-          { x: 220, y: 190, w: 30, h: 120 },
-          { x: 550, y: 190, w: 30, h: 120 }
-        ];
-
-        function loop() {
-          if (!AppState.match.running) return;
-          if (!AppState.match.paused) {
-            // P1 Move
-            if (keysPressed['KeyW']) { t1.y = Math.max(20, t1.y - 3.5); t1.dir = 'U'; }
-            else if (keysPressed['KeyS']) { t1.y = Math.min(445, t1.y + 3.5); t1.dir = 'D'; }
-            else if (keysPressed['KeyA']) { t1.x = Math.max(20, t1.x - 3.5); t1.dir = 'L'; }
-            else if (keysPressed['KeyD']) { t1.x = Math.min(745, t1.x + 3.5); t1.dir = 'R'; }
-
-            if (t1.cd > 0) t1.cd--;
-            if (keysPressed['Space'] && t1.cd === 0) {
-              shells.push(spawnTankShell(t1, 1));
-              t1.cd = 25;
-              playSfx('laser');
-            }
-
-            // P2 Move or Bot
-            if (AppState.room.mode === 'bot') {
-              t2.y += Math.cos(Date.now() / 500) * 3;
-              t2.dir = 'L';
-              if (t2.cd === 0) { shells.push(spawnTankShell(t2, 2)); t2.cd = 35; }
-              if (t2.cd > 0) t2.cd--;
-            } else {
-              if (keysPressed['ArrowUp']) { t2.y = Math.max(20, t2.y - 3.5); t2.dir = 'U'; }
-              else if (keysPressed['ArrowDown']) { t2.y = Math.min(445, t2.y + 3.5); t2.dir = 'D'; }
-              else if (keysPressed['ArrowLeft']) { t2.x = Math.max(20, t2.x - 3.5); t2.dir = 'L'; }
-              else if (keysPressed['ArrowRight']) { t2.x = Math.min(745, t2.x + 3.5); t2.dir = 'R'; }
-
-              if (t2.cd > 0) t2.cd--;
-              if (keysPressed['Enter'] && t2.cd === 0) {
-                shells.push(spawnTankShell(t2, 2));
-                t2.cd = 25;
-                playSfx('laser');
-              }
-            }
-
-            shells.forEach((s, si) => {
-              s.x += s.vx; s.y += s.vy;
-              // Hit Walls
-              blocks.forEach(bl => {
-                if (s.x > bl.x && s.x < bl.x + bl.w && s.y > bl.y && s.y < bl.y + bl.h) {
-                  shells.splice(si, 1);
-                }
-              });
-              // Hit Tanks
-              if (s.owner === 1 && Math.abs(s.x - (t2.x + 16)) < 20 && Math.abs(s.y - (t2.y + 16)) < 20) {
-                shells.splice(si, 1);
-                AppState.match.p1Score += 250;
-                AppState.match.p2Hp -= 25;
-                updateHudUI(); triggerShake(); playSfx('explosion');
-                if (AppState.match.p2Hp <= 0) endMatch('XE TĂNG P1 CHIẾN THẮNG!');
-              }
-              if (s.owner === 2 && Math.abs(s.x - (t1.x + 16)) < 20 && Math.abs(s.y - (t1.y + 16)) < 20) {
-                shells.splice(si, 1);
-                AppState.match.p2Score += 250;
-                AppState.match.p1Hp -= 25;
-                updateHudUI(); triggerShake(); playSfx('explosion');
-                if (AppState.match.p1Hp <= 0) endMatch('XE TĂNG P2 CHIẾN THẮNG!');
-              }
-            });
-            shells = shells.filter(s => s.x > 0 && s.x < 800 && s.y > 0 && s.y < 500);
-          }
-
-          ctx.fillStyle = '#0A0D18';
-          ctx.fillRect(0, 0, 800, 500);
-
-          // Draw Brick Walls
-          blocks.forEach(bl => {
-            ctx.fillStyle = '#B45309';
-            ctx.fillRect(bl.x, bl.y, bl.w, bl.h);
-            ctx.strokeStyle = '#78350F';
-            ctx.strokeRect(bl.x, bl.y, bl.w, bl.h);
-          });
-
-          drawPixelTank(t1);
-          drawPixelTank(t2);
-
-          shells.forEach(s => {
-            ctx.fillStyle = '#FEE440';
-            ctx.fillRect(s.x - 3, s.y - 3, 6, 6);
-          });
-
-          animFrameId = requestAnimationFrame(loop);
-        }
-        loop();
-      }
-
-      else if (gameId === 'pong') {
-        // GAME 4: BÓNG BÀN HUYỀN THOẠI (CYBER PONG 2P)
-        let p1Y = 200, p2Y = 200;
-        let ball = { x: 400, y: 250, vx: 5.5, vy: 4 };
-
-        function loop() {
-          if (!AppState.match.running) return;
-          if (!AppState.match.paused) {
-            if (keysPressed['KeyW'] && p1Y > 10) p1Y -= 7;
-            if (keysPressed['KeyS'] && p1Y < 400) p1Y += 7;
-
-            if (AppState.room.mode === 'bot') {
-              if (ball.y > p2Y + 45 && p2Y < 400) p2Y += 5;
-              if (ball.y < p2Y + 45 && p2Y > 10) p2Y -= 5;
-            } else {
-              if (keysPressed['ArrowUp'] && p2Y > 10) p2Y -= 7;
-              if (keysPressed['ArrowDown'] && p2Y < 400) p2Y += 7;
-            }
-
-            ball.x += ball.vx;
-            ball.y += ball.vy;
-
-            if (ball.y <= 10 || ball.y >= 490) { ball.vy *= -1; playSfx('blip'); }
-
-            // Paddle Bounce
-            if (ball.x <= 42 && ball.y >= p1Y && ball.y <= p1Y + 90) {
-              ball.vx = Math.abs(ball.vx) * 1.05;
-              playSfx('laser');
-            }
-            if (ball.x >= 758 && ball.y >= p2Y && ball.y <= p2Y + 90) {
-              ball.vx = -Math.abs(ball.vx) * 1.05;
-              playSfx('laser');
-            }
-
-            // Score
-            if (ball.x < 0) {
-              AppState.match.p2Score += 1;
-              updateHudUI(); triggerShake(); playSfx('explosion');
-              ball = { x: 400, y: 250, vx: 5.5, vy: (Math.random() - 0.5) * 8 };
-            }
-            if (ball.x > 800) {
-              AppState.match.p1Score += 1;
-              updateHudUI(); triggerShake(); playSfx('explosion');
-              ball = { x: 400, y: 250, vx: -5.5, vy: (Math.random() - 0.5) * 8 };
-            }
-          }
-
-          ctx.fillStyle = '#06070E';
-          ctx.fillRect(0, 0, 800, 500);
-          ctx.setLineDash([10, 10]);
-          ctx.strokeStyle = '#272E54';
-          ctx.beginPath(); ctx.moveTo(400, 0); ctx.lineTo(400, 500); ctx.stroke();
-          ctx.setLineDash([]);
-
-          ctx.fillStyle = '#00F5D4';
-          ctx.fillRect(25, p1Y, 14, 90);
-          ctx.fillStyle = '#FF2A85';
-          ctx.fillRect(761, p2Y, 14, 90);
-
-          ctx.fillStyle = '#FEE440';
-          ctx.fillRect(ball.x - 8, ball.y - 8, 16, 16);
-
-          animFrameId = requestAnimationFrame(loop);
-        }
-        loop();
-      }
-
-      else if (gameId === 'racer') {
-        // GAME 3: ĐUA XE TỐC ĐỘ (NEON PIXEL RACERS 2P)
-        let car1X = 260, car2X = 500;
-        let roadOffset = 0;
-        let obstacles = [];
-        let frame = 0;
-
-        function loop() {
-          if (!AppState.match.running) return;
-          if (!AppState.match.paused) {
-            frame++;
-            roadOffset = (roadOffset + 8) % 40;
-            AppState.match.p1Score += 1;
-            AppState.match.p2Score += 1;
-            if (frame % 10 === 0) updateHudUI();
-
-            if (keysPressed['KeyA'] && car1X > 160) car1X -= 5;
-            if (keysPressed['KeyD'] && car1X < 365) car1X += 5;
-
-            if (AppState.room.mode === 'bot') {
-              car2X = 480 + Math.sin(frame / 25) * 60;
-            } else {
-              if (keysPressed['ArrowLeft'] && car2X > 410) car2X -= 5;
-              if (keysPressed['ArrowRight'] && car2X < 610) car2X += 5;
-            }
-
-            if (frame % 45 === 0) {
-              obstacles.push({ x: 160 + Math.random() * 200, y: -40, lane: 1 });
-              obstacles.push({ x: 410 + Math.random() * 200, y: -40, lane: 2 });
-            }
-
-            obstacles.forEach((ob, i) => {
-              ob.y += 7;
-              if (ob.lane === 1 && Math.abs(ob.x - car1X) < 28 && Math.abs(ob.y - 400) < 42) {
-                obstacles.splice(i, 1);
-                AppState.match.p1Hp -= 25;
-                updateHudUI(); triggerShake(); playSfx('explosion');
-                if (AppState.match.p1Hp <= 0) endMatch('TAY ĐUA P2 VỀ ĐÍCH TRƯỚC!');
-              }
-              if (ob.lane === 2 && Math.abs(ob.x - car2X) < 28 && Math.abs(ob.y - 400) < 42) {
-                obstacles.splice(i, 1);
-                AppState.match.p2Hp -= 25;
-                updateHudUI(); triggerShake(); playSfx('explosion');
-                if (AppState.match.p2Hp <= 0) endMatch('TAY ĐUA P1 VỀ ĐÍCH TRƯỚC!');
-              }
-            });
-            obstacles = obstacles.filter(o => o.y < 550);
-          }
-
-          ctx.fillStyle = '#090D16';
-          ctx.fillRect(0, 0, 800, 500);
-          // 2 Roads
-          ctx.fillStyle = '#171C2E';
-          ctx.fillRect(150, 0, 240, 500);
-          ctx.fillRect(410, 0, 240, 500);
-
-          ctx.fillStyle = '#FEE440';
-          for (let y = roadOffset - 40; y < 500; y += 40) {
-            ctx.fillRect(268, y, 4, 20);
-            ctx.fillRect(528, y, 4, 20);
-          }
-
-          // Cars
-          ctx.fillStyle = '#00F5D4';
-          ctx.fillRect(car1X, 400, 28, 46);
-          ctx.fillStyle = '#FF2A85';
-          ctx.fillRect(car2X, 400, 28, 46);
-
-          obstacles.forEach(ob => {
-            ctx.fillStyle = '#F97316';
-            ctx.fillRect(ob.x, ob.y, 28, 28);
-          });
-
-          animFrameId = requestAnimationFrame(loop);
-        }
-        loop();
-      }
-
-      else if (gameId === 'caro') {
-        // GAME 5: CỜ CARO SIÊU TỐC (GOMOKU 8-BIT 15x15)
-        const SIZE = 15;
-        const CELL = 30;
-        const OFFSET_X = 175;
-        const OFFSET_Y = 25;
-        window.caroState = {
-          board: Array.from({ length: SIZE }, () => Array(SIZE).fill(0)),
-          turn: 1
-        };
-
-        canvas.onclick = (e) => {
-          if (AppState.room.gameId !== 'caro' || !AppState.match.running) return;
-          const rect = canvas.getBoundingClientRect();
-          const scaleX = canvas.width / rect.width;
-          const scaleY = canvas.height / rect.height;
-          const mx = (e.clientX - rect.left) * scaleX;
-          const my = (e.clientY - rect.top) * scaleY;
-
-          const c = Math.floor((mx - OFFSET_X) / CELL);
-          const r = Math.floor((my - OFFSET_Y) / CELL);
-          if (r >= 0 && r < SIZE && c >= 0 && c < SIZE) {
-            handleCaroClick(r, c, false);
+          const coords = window.InputController.extractClientCoords(e);
+          if (!coords) return;
+          const pt = window.InputController.clientToCanvasCoords(canvas, coords.clientX, coords.clientY);
+          if (!pt.inBounds) return;
+          const cell = Engine.canvasToCell(pt.x, pt.y);
+          if (cell) {
+            handleCaroClick(cell.r, cell.c, false);
           }
         };
 
-        window.handleCaroClick = (r, c, fromRemote) => {
+        canvas.onclick = (e) => handleBoardPointer(e, false);
+        canvas.ontouchstart = (e) => handleBoardPointer(e, true);
+
+        window.handleCaroClick = (r, c, fromRemote, serverResult = null) => {
           const st = window.caroState;
-          if (st.board[r][c] !== 0) return;
-          st.board[r][c] = st.turn;
+          if (!st || st.finished) return;
+
+          // Neu dang choi Online Socket -> gui len Server kiem duyet chong cheat truoc
+          if (!fromRemote && window.NetworkSync && window.NetworkSync.isSocketMultiplayer(AppState.room.mode)) {
+            if (st.locked) return;
+            st.locked = true;
+            window.NetworkSync.sendCaroMove(r, c);
+            return;
+          }
+
+          const res = Engine.applyMove(st, r, c, {
+            fromRemote: !!fromRemote,
+            expectedPlayer: serverResult ? serverResult.player : null
+          });
+          if (!res.ok) return;
+
+          st.locked = false;
           playSfx('blip');
 
           if (!fromRemote) {
             sendNetworkEvent({ type: 'CARO_MOVE', r, c });
           }
 
-          if (checkCaroWin(st.board, r, c, st.turn)) {
-            if (st.turn === 1) AppState.match.p1Score += 500;
+          if (res.win) {
+            if (res.player === 1) AppState.match.p1Score += 500;
             else AppState.match.p2Score += 500;
             updateHudUI();
-            endMatch(`NGƯỜI CHƠI ${st.turn} THẮNG CỜ CARO!`);
+            triggerShake();
+            endMatch(`NGƯỜI CHƠI ${res.player} THẮNG CỜ CARO!`);
             return;
           }
 
-          st.turn = st.turn === 1 ? 2 : 1;
+          if (res.isDraw) {
+            updateHudUI();
+            endMatch('TRẬN ĐẤU HÒA KỊCH TÍNH!');
+            return;
+          }
 
-          // Bot AI move
+          // Bot AI move (ban kinh 2 o quanh P1)
           if (AppState.room.mode === 'bot' && st.turn === 2) {
+            st.locked = true;
             setTimeout(() => {
-              for (let rr = 6; rr < 11; rr++) {
-                for (let cc = 6; cc < 11; cc++) {
-                  if (st.board[rr][cc] === 0) {
-                    handleCaroClick(rr, cc, true);
-                    return;
-                  }
-                }
+              if (!AppState.match.running || st.finished) return;
+              const botMove = Engine.pickBotMove(st);
+              st.locked = false;
+              if (botMove) {
+                handleCaroClick(botMove.r, botMove.c, true);
               }
-            }, 250);
+            }, 240);
           }
         };
 
-        function loop() {
+        function caroLoop() {
           if (!AppState.match.running) return;
-          ctx.fillStyle = '#080912';
-          ctx.fillRect(0, 0, 800, 500);
+          Engine.render(ctx, state);
+          animFrameId = requestAnimationFrame(caroLoop);
+        }
+        caroLoop();
+        return;
+      }
 
-          // Draw Grid
-          for (let r = 0; r < SIZE; r++) {
-            for (let c = 0; c < SIZE; c++) {
-              const x = OFFSET_X + c * CELL;
-              const y = OFFSET_Y + r * CELL;
-              ctx.strokeStyle = '#272E54';
-              ctx.strokeRect(x, y, CELL, CELL);
+      // Action games loop (StarFighter, Tank, Pong, Racer)
+      function actionLoop() {
+        if (!AppState.match.running) return;
+        const isRemoteGuest = (
+          AppState.player.role === 'P2' &&
+          AppState.room.mode !== 'bot' &&
+          window.NetworkSync &&
+          window.NetworkSync.isSocketMultiplayer(AppState.room.mode)
+        );
 
-              const val = window.caroState.board[r][c];
-              if (val === 1) {
-                ctx.strokeStyle = '#00F5D4';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.moveTo(x + 6, y + 6); ctx.lineTo(x + 24, y + 24);
-                ctx.moveTo(x + 24, y + 6); ctx.lineTo(x + 6, y + 24);
-                ctx.stroke();
-                ctx.lineWidth = 1;
-              } else if (val === 2) {
-                ctx.strokeStyle = '#FF2A85';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.arc(x + 15, y + 15, 9, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.lineWidth = 1;
-              }
+        if (!AppState.match.paused && !isRemoteGuest) {
+          const events = Engine.step(state, keysPressed, AppState.match, AppState.room.mode);
+          const ended = handleEngineEvents(events);
+          if (ended) return;
+
+          // Host (P1) broadcast snapshot 30-45 Hz cho Guest P2 qua Socket.io
+          if (
+            AppState.player.role === 'P1' &&
+            window.NetworkSync &&
+            window.NetworkSync.isSocketMultiplayer(AppState.room.mode)
+          ) {
+            const now = performance.now();
+            if (now - lastSyncPushTs >= 25) {
+              lastSyncPushTs = now;
+              window.NetworkSync.sendHostStateSync(Engine.getSnapshot(state, AppState.match));
             }
           }
-          animFrameId = requestAnimationFrame(loop);
         }
-        loop();
+
+        Engine.render(ctx, state);
+        animFrameId = requestAnimationFrame(actionLoop);
       }
-    }
-
-    // Helper Drawing Functions
-    function drawPixelShip(x, y, color, label) {
-      ctx.fillStyle = color;
-      ctx.fillRect(x + 14, y, 8, 8);
-      ctx.fillRect(x + 8, y + 8, 20, 12);
-      ctx.fillRect(x, y + 20, 36, 12);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 10px monospace';
-      ctx.fillText(label, x + 12, y + 29);
-    }
-
-    function drawPixelTank(t) {
-      ctx.fillStyle = t.color;
-      ctx.fillRect(t.x, t.y, 32, 32);
-      ctx.fillStyle = '#FFFFFF';
-      if (t.dir === 'U') ctx.fillRect(t.x + 14, t.y - 8, 4, 16);
-      if (t.dir === 'D') ctx.fillRect(t.x + 14, t.y + 24, 4, 16);
-      if (t.dir === 'L') ctx.fillRect(t.x - 8, t.y + 14, 16, 4);
-      if (t.dir === 'R') ctx.fillRect(t.x + 24, t.y + 14, 16, 4);
-    }
-
-    function spawnTankShell(t, owner) {
-      const speed = 7;
-      let vx = 0, vy = 0;
-      if (t.dir === 'U') vy = -speed;
-      if (t.dir === 'D') vy = speed;
-      if (t.dir === 'L') vx = -speed;
-      if (t.dir === 'R') vx = speed;
-      return { x: t.x + 16, y: t.y + 16, vx, vy, owner };
+      actionLoop();
     }
 
     function checkCaroWin(board, r, c, player) {
+      if (window.GameEngine) return window.GameEngine.checkCaroWin(board, r, c, player);
       const dirs = [[1,0],[0,1],[1,1],[1,-1]];
       for (const [dr, dc] of dirs) {
         let count = 1;
@@ -1828,7 +1783,8 @@
       return false;
     }
 
-    // Boot App & Init MVP 1 Modules
+    // Boot App & Init MVP Modules
+    loadUiPrefs();
     if (window.GuestAuth) {
       const profile = window.GuestAuth.initGuestAuth();
       AppState.player.id = profile.id;
@@ -1837,6 +1793,11 @@
     }
     if (window.LobbyManager) {
       window.LobbyManager.renderPublicRoomsList();
+    }
+    if (window.LeaderboardUI) {
+      window.LeaderboardUI.fetchPlayerStats(AppState.player.id).then((st) => {
+        if (st) window.LeaderboardUI.updateHeaderStats(st.totalScore, st.level);
+      });
     }
     renderGamesGrid('all');
   </script>
